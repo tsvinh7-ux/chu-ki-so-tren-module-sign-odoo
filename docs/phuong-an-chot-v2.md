@@ -11,6 +11,19 @@
 - **Khách hàng** là phần còn phải giải quyết. Khách đang dùng đủ loại CKS cloud và USB token của nhiều nhà cung cấp khác nhau.
 - Nếu làm thì phải **phủ hết các loại CKS**, và **ký USB token phải dễ cho khách**.
 
+## 0.1 Bối cảnh hệ thống hiện tại (rút từ các phiên làm việc trước với Claude Code)
+
+- **Odoo 17 Community** do Bizapps triển khai, chạy trên máy chủ riêng (dmagroup.vn). Bizapps cài được module tự viết.
+- ⚠️ **Odoo Sign là app của bản Enterprise, bản Community không có.** Vì vậy cần xác định "Sign" mà anh/chị đang dùng và thấy ưng là bản nào. Có 3 khả năng:
+  1. **Odoo Sign Enterprise**, dùng thử trên Odoo Online hoặc một hệ thống khác.
+  2. Một module ký do **Bizapps** viết cho bản Community.
+  3. Module **`sign_oca`** của cộng đồng OCA (giấy phép AGPL, chạy được trên Community).
+
+  Addon CKS sẽ móc vào đúng module ký đang dùng. Phần ký số và kiểm tra PDF (pyHanko, adapter nhà cung cấp, phần mềm cho USB token) **viết độc lập**, nên đổi module ký thì không phải làm lại.
+- **Đã có sẵn code ký số:** module `dmag_esign_mysign` (Odoo 17, nằm trong repo ERP-module-nha-khoa) đã có khung ký số dùng chung gồm `dmag.esign.request`, `dmag.esign.mixin` và `dmag.esign.provider`, kèm adapter **Viettel MySign**. Còn thiếu phần nhúng chữ ký vào PDF theo chuẩn PAdES. Addon mới sẽ **tách khung này thành module dùng chung**, không gắn với phòng khám nữa, rồi viết tiếp phần còn thiếu thay vì làm từ đầu.
+- **Module hợp đồng `dmag_contract`** (repo CRM-odoo) hiện xác nhận "đã ký" bằng nút bấm tay và tải file lên tay. Sau khi có addon, hợp đồng sẽ **tự chuyển sang trạng thái "đã ký"** và tự gắn file PDF đã ký số khi các bên ký xong.
+- **Viettel** đang cung cấp hóa đơn điện tử cho DMAG, và Giám đốc đã có tài khoản MySign.
+
 ---
 
 ## 1. Trả lời từng câu hỏi
@@ -44,13 +57,15 @@ Xem mục 2. Tóm lại, khách chọn 1 trong 3 cách trên cùng một trang k
 | Có tài liệu tích hợp cho đối tác và môi trường **sandbox** | Để viết và test addon trước khi chạy thật |
 | Giá theo gói hoặc theo lượt ký phù hợp số lượng hợp đồng | Chi phí vận hành |
 
-**Đề xuất cho DMAG: VNPT SmartCA**, với các lý do sau:
-- Anh/chị đang dùng VNPT.
-- VNPT có tài liệu tích hợp riêng cho đối tác.
-- Dịch vụ chữ ký số của VNPT được Trung tâm Chứng thực điện tử quốc gia (NEAC) đánh giá chất lượng tốt nhất 3 năm liền (2023–2025).
-- VNPT có gói ký không giới hạn cho doanh nghiệp.
+**Đề xuất cho DMAG: Viettel MySign**, với các lý do sau:
+- Đã có sẵn code adapter MySign (`dmag_esign_mysign`).
+- Giám đốc đã có tài khoản MySign.
+- Viettel đang cung cấp hóa đơn điện tử cho DMAG, nên gom về một nhà cung cấp.
+- MySign đã được tích hợp vào hơn 965 hệ thống và vào VNeID.
 
-**Phương án dự phòng: Viettel MySign.** Addon viết theo kiểu adapter, nên nếu đổi nhà cung cấp chỉ cần đổi cấu hình.
+**Phương án dự phòng: VNPT SmartCA.** Dịch vụ chữ ký số của VNPT được Trung tâm Chứng thực điện tử quốc gia (NEAC) đánh giá chất lượng tốt nhất 3 năm liền (2023–2025), và VNPT có tài liệu tích hợp cho đối tác.
+
+Trước khi chốt, cần hỏi cả hai nhà 2 câu: có **API ký tự động cho chứng thư tổ chức** không, và **giá theo lượt ký hoặc theo gói** là bao nhiêu. Nhà nào đáp ứng tốt hơn thì chọn. Addon viết theo kiểu adapter, nên đổi nhà cung cấp chỉ cần đổi cấu hình.
 
 ---
 
@@ -122,8 +137,8 @@ flowchart TD
 ```
 
 **Về kỹ thuật:**
-- Addon kế thừa `sign.request` và `sign.item.role` của Odoo Sign, thêm trường "Yêu cầu khách ký số" và các trạng thái "Chờ khách ký số", "Chờ DMAG ký số", "Hoàn tất ký số".
-- Phần ký và kiểm tra PDF dùng thư viện **pyHanko**, theo chuẩn PAdES với dấu thời gian và dữ liệu thu hồi nhúng sẵn. Odoo Sign được để nguyên.
+- Addon kế thừa model yêu cầu ký của module ký đang dùng (`sign.request` nếu là Odoo Sign, `sign.oca.request` nếu là `sign_oca`), thêm trường "Yêu cầu khách ký số" và các trạng thái "Chờ khách ký số", "Chờ DMAG ký số", "Hoàn tất ký số".
+- Phần ký và kiểm tra PDF dùng thư viện **pyHanko**, theo chuẩn PAdES với dấu thời gian và dữ liệu thu hồi nhúng sẵn. Module ký gốc được để nguyên.
 
 ---
 
@@ -143,11 +158,12 @@ flowchart TD
 
 ## 5. Cần anh/chị duyệt và cung cấp
 
+- [ ] **Quan trọng nhất:** "Sign" mà anh/chị đã dùng là **Odoo Sign Enterprise**, **module ký của Bizapps**, hay **`sign_oca`**? (Odoo 17 Community không có sẵn Odoo Sign.)
 - [ ] Duyệt mô hình: **mặc định chữ ký Odoo + CKS DMAG**; khách cần thì ký CKS bằng Cách A/B/C.
-- [ ] Duyệt nhà cung cấp CKS cloud cho DMAG: **VNPT SmartCA** (dự phòng: Viettel MySign).
-- [ ] Duyệt lộ trình 3 giai đoạn; cho phép bắt đầu code giai đoạn 1 trong repo này.
+- [ ] Duyệt nhà cung cấp CKS cloud cho DMAG: **Viettel MySign** (dự phòng: VNPT SmartCA), sau khi hỏi về API ký tự động và giá.
+- [ ] Duyệt lộ trình 3 giai đoạn; cho phép bắt đầu code giai đoạn 1 trong repo này cho **Odoo 17**, tái sử dụng khung `dmag_esign_mysign` và nối với `dmag_contract`.
 - [ ] **Hỏi Bizapps:** (1) server có cài được thư viện Python **pyHanko** không; (2) quy trình deploy addon tự viết lên Odoo của mình.
-- [ ] **Liên hệ VNPT:** mua chứng thư số tổ chức loại ký từ xa có API ký tự động, và xin tài khoản sandbox tích hợp.
+- [ ] **Liên hệ nhà cung cấp CKS đã chọn:** mua chứng thư số tổ chức loại ký từ xa có API ký tự động, và xin tài khoản sandbox tích hợp.
 
 ## Nguồn bổ sung (ngoài các nguồn ở v1)
 
