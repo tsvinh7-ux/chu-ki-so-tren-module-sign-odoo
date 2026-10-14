@@ -1,6 +1,6 @@
 # Đề xuất: Cho Odoo Sign ký đúng pháp lý Việt Nam
 
-> **Trạng thái:** Chờ phê duyệt · **Ngày:** 14/10/2026
+> **Trạng thái:** v1, phần phương án (mục 4–7) đã được thay bằng [phương án chốt v2](phuong-an-chot-v2.md); phần pháp lý vẫn dùng · **Ngày:** 14/10/2026
 > **Lưu ý:** Đây là phân tích kỹ thuật và pháp lý để định hướng, không thay cho tư vấn của luật sư. Trước khi dùng thật, nên nhờ luật sư rà lại mẫu hợp đồng và ma trận ở mục 4.
 
 ---
