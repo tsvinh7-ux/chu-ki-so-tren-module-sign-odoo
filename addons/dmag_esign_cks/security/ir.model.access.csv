@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_cks_envelope_user,cks.envelope.user,model_dmag_cks_envelope,group_cks_user,1,1,1,0
+access_cks_envelope_manager,cks.envelope.manager,model_dmag_cks_envelope,group_cks_manager,1,1,1,1
+access_cks_signer_user,cks.signer.user,model_dmag_cks_signer,group_cks_user,1,1,1,1
+access_cks_provider_user,cks.provider.user,model_dmag_cks_provider,group_cks_user,1,0,0,0
+access_cks_provider_manager,cks.provider.manager,model_dmag_cks_provider,group_cks_manager,1,1,1,1
+access_cks_trust_root_user,cks.trust.root.user,model_dmag_cks_trust_root,group_cks_user,1,0,0,0
+access_cks_trust_root_manager,cks.trust.root.manager,model_dmag_cks_trust_root,group_cks_manager,1,1,1,1
+access_cks_send_wizard_user,cks.send.wizard.user,model_dmag_cks_send_wizard,group_cks_user,1,1,1,1

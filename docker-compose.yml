@@ -1,0 +1,28 @@
+# Demo addon ký số trên Odoo 17: docker compose up -d rồi mở http://localhost:8069
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+  odoo:
+    build: .
+    image: dmag-cks-odoo:17
+    depends_on:
+      - db
+    ports:
+      - "8069:8069"
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+    volumes:
+      - ./addons:/mnt/extra-addons
+      - odoo-data:/var/lib/odoo
+    command: ["--", "-d", "dmag_cks_demo", "-i", "dmag_esign_cks", "--db-filter", "^dmag_cks_demo$$"]
+volumes:
+  db-data:
+  odoo-data:

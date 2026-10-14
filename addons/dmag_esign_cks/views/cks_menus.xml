@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_cks_root" name="Ký số" sequence="45" groups="group_cks_user"
+              web_icon="dmag_esign_cks,static/description/icon.png"/>
+    <menuitem id="menu_cks_envelope" name="Hồ sơ ký số" parent="menu_cks_root" sequence="10"
+              action="action_cks_envelope"/>
+    <menuitem id="menu_cks_send" name="Gửi PDF đi ký số" parent="menu_cks_root" sequence="20"
+              action="action_cks_send_wizard"/>
+    <menuitem id="menu_cks_config" name="Cấu hình" parent="menu_cks_root" sequence="90" groups="group_cks_manager"/>
+    <menuitem id="menu_cks_provider" name="Nhà cung cấp chữ ký số" parent="menu_cks_config" sequence="10"
+              action="action_cks_provider"/>
+    <menuitem id="menu_cks_trust_root" name="Root CA tin cậy" parent="menu_cks_config" sequence="20"
+              action="action_cks_trust_root"/>
+</odoo>

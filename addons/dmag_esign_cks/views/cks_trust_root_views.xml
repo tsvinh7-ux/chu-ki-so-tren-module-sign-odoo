@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cks_trust_root_tree" model="ir.ui.view">
+        <field name="name">dmag.cks.trust.root.tree</field>
+        <field name="model">dmag.cks.trust.root</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="subject"/>
+                <field name="valid_to"/>
+                <field name="is_demo"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_cks_trust_root_form" model="ir.ui.view">
+        <field name="name">dmag.cks.trust.root.form</field>
+        <field name="model">dmag.cks.trust.root</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="alert alert-warning" role="alert" invisible="not is_demo">
+                        Root CA giả lập, không có giá trị pháp lý.
+                    </div>
+                    <group>
+                        <field name="name"/>
+                        <field name="cert_file"/>
+                        <field name="subject"/>
+                        <field name="valid_to"/>
+                        <field name="is_demo" readonly="1"/>
+                        <field name="active" widget="boolean_toggle"/>
+                    </group>
+                    <p class="text-muted">Thêm Root CA quốc gia và chứng thư CA gốc của các nhà cung cấp
+                        (VNPT, Viettel, BKAV, FPT, MISA…) để hệ thống xác nhận chuỗi tin cậy khi kiểm tra chữ ký.</p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_cks_trust_root" model="ir.actions.act_window">
+        <field name="name">Root CA tin cậy</field>
+        <field name="res_model">dmag.cks.trust.root</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

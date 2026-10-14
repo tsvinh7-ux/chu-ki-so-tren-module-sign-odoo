@@ -1,26 +1,22 @@
-# Phương án chốt (v2): Addon chữ ký số cho Odoo Sign
+# Phương án chốt (v2): Addon chữ ký số cho module ký trên Odoo
 
-> **Trạng thái:** Chờ phê duyệt · **Ngày:** 14/10/2026 · Bản này thay phần phương án (mục 4–7) của [bản đề xuất v1](de-xuat-chu-ky-so-odoo-sign.md). Phần căn cứ pháp lý vẫn xem ở v1.
+> **Trạng thái:** Đã duyệt, đã làm bản chạy thử (xem [hướng dẫn triển khai](huong-dan-trien-khai.md)) · **Ngày:** 14/10/2026 · Bản này thay phần phương án (mục 4–7) của [bản đề xuất v1](de-xuat-chu-ky-so-odoo-sign.md). Phần căn cứ pháp lý vẫn xem ở v1.
 > **Lưu ý:** Đây là phân tích kỹ thuật và pháp lý để định hướng, không thay cho tư vấn của luật sư.
 
 ## 0. Những điểm đã chốt
 
-- Chỉ làm **addon tích hợp**, **không sửa và không làm lại Odoo Sign**.
-- **Nội bộ** ký bằng Odoo Sign sẵn có, không thêm gì.
+- Chỉ làm **addon tích hợp**, **không sửa và không làm lại module ký** (bản Sign do Bizapps tùy biến trên Odoo 17 CE).
+- **Nội bộ** ký bằng module ký sẵn có, không thêm gì.
 - **DMAG** ký bằng **CKS tổ chức dạng cloud**, ký tự động trong Odoo.
 - **Khách hàng** là phần còn phải giải quyết. Khách đang dùng đủ loại CKS cloud và USB token của nhiều nhà cung cấp khác nhau.
 - Nếu làm thì phải **phủ hết các loại CKS**, và **ký USB token phải dễ cho khách**.
+- **Bỏ cách "tải về, ký, tải lên".** Khách phải ký nhanh, trực tuyến (USB token hoặc app).
 
 ## 0.1 Bối cảnh hệ thống hiện tại (rút từ các phiên làm việc trước với Claude Code)
 
 - **Odoo 17 Community** do Bizapps triển khai, chạy trên máy chủ riêng (dmagroup.vn). Bizapps cài được module tự viết.
-- ⚠️ **Odoo Sign là app của bản Enterprise, bản Community không có.** Vì vậy cần xác định "Sign" mà anh/chị đang dùng và thấy ưng là bản nào. Có 3 khả năng:
-  1. **Odoo Sign Enterprise**, dùng thử trên Odoo Online hoặc một hệ thống khác.
-  2. Một module ký do **Bizapps** viết cho bản Community.
-  3. Module **`sign_oca`** của cộng đồng OCA (giấy phép AGPL, chạy được trên Community).
-
-  Addon CKS sẽ móc vào đúng module ký đang dùng. Phần ký số và kiểm tra PDF (pyHanko, adapter nhà cung cấp, phần mềm cho USB token) **viết độc lập**, nên đổi module ký thì không phải làm lại.
-- **Đã có sẵn code ký số:** module `dmag_esign_mysign` (Odoo 17, nằm trong repo ERP-module-nha-khoa) đã có khung ký số dùng chung gồm `dmag.esign.request`, `dmag.esign.mixin` và `dmag.esign.provider`, kèm adapter **Viettel MySign**. Còn thiếu phần nhúng chữ ký vào PDF theo chuẩn PAdES. Addon mới sẽ **tách khung này thành module dùng chung**, không gắn với phòng khám nữa, rồi viết tiếp phần còn thiếu thay vì làm từ đầu.
+- **Module ký đang dùng:** bản Sign do **Bizapps tùy biến trên Odoo 17 CE**. Odoo Sign gốc là app Enterprise, bản Community không có. Addon CKS chạy độc lập và nối vào module của Bizapps qua một module cầu nối nhỏ (mẫu code ở [hướng dẫn triển khai, mục 5](huong-dan-trien-khai.md#5-nối-với-module-ký-của-bizapps-việc-còn-lại-cho-bizapps)).
+- **Đã có sẵn code ký số:** module `dmag_esign_mysign` (Odoo 17, nằm trong repo ERP-module-nha-khoa) đã có khung ký số dùng chung gồm `dmag.esign.request`, `dmag.esign.mixin` và `dmag.esign.provider`, kèm adapter **Viettel MySign**. Còn thiếu phần nhúng chữ ký vào PDF theo chuẩn PAdES. Adapter MySign trong addon mới được chuyển từ module này sang. Addon mới bổ sung phần nhúng PAdES còn thiếu, và là khung dùng chung, không gắn với phòng khám.
 - **Module hợp đồng `dmag_contract`** (repo CRM-odoo) hiện xác nhận "đã ký" bằng nút bấm tay và tải file lên tay. Sau khi có addon, hợp đồng sẽ **tự chuyển sang trạng thái "đã ký"** và tự gắn file PDF đã ký số khi các bên ký xong.
 - **Viettel** đang cung cấp hóa đơn điện tử cho DMAG, và Giám đốc đã có tài khoản MySign.
 
@@ -69,11 +65,13 @@ Trước khi chốt, cần hỏi cả hai nhà 2 câu: có **API ký tự độn
 
 ---
 
-## 2. Cách phủ hết mọi loại CKS mà không phải tích hợp API từng nhà
+## 2. Cách phủ các loại CKS của khách
 
-Bizapps nói đúng: **nếu tích hợp API riêng của từng nhà cung cấp** (VNPT, Viettel, FPT, MISA, BKAV, CA2, CMC, SDS…) thì rất tốn kém, và không đáng nếu số hợp đồng ít. Cách giải quyết là dùng **hai cơ chế dùng chung cho mọi nhà cung cấp**, và chỉ tích hợp API riêng cho vài nhà phổ biến nhất.
+Bizapps nói đúng: **nếu tích hợp API riêng của từng nhà cung cấp** (VNPT, Viettel, FPT, MISA, BKAV, CA2, CMC, SDS…) thì rất tốn kém, và không đáng nếu số hợp đồng ít. Cách giải quyết:
+- **USB token:** một phần mềm dùng chung cho **mọi** nhà cung cấp.
+- **CKS cloud:** chỉ tích hợp API cho vài nhà phổ biến nhất trước, thêm nhà khác khi có khách dùng.
 
-Khi hợp đồng yêu cầu khách ký CKS, khách ký trên Odoo Sign như bình thường, rồi được chuyển ngay sang **trang "Ký số"** với 3 lựa chọn:
+Khi hợp đồng yêu cầu khách ký CKS, khách ký trên module ký như bình thường, rồi nhận link **trang "Ký số"** với 2 lựa chọn:
 
 ### Cách A: Ký bằng USB token (mọi nhà cung cấp) qua phần mềm "DMAG Ký số"
 
@@ -92,30 +90,16 @@ Phần mềm này chỉ nhận **mã hash** của tài liệu, ký bằng token,
 - **Làm trước:** VNPT SmartCA và Viettel MySign. **Làm sau, theo nhu cầu thực tế:** FPT, MISA, BKAV, CA2, CMC, SDS…
 - Mỗi nhà là một adapter riêng. Phần tốn kém **không nằm ở code** (vài ngày cho mỗi nhà khi đã có sandbox) mà ở **thủ tục ký hợp tác và cấp tài khoản API** với từng nhà. Vì vậy chỉ làm khi có đủ khách dùng nhà đó.
 
-### Cách C: Tải về, ký bằng công cụ của mình, rồi tải lên (dự phòng cho 100% trường hợp)
-
-- Khách tải PDF về, ký bằng bất kỳ công cụ nào họ đang có:
-  - Foxit hoặc Adobe Reader kèm USB token.
-  - Phần mềm ký của nhà cung cấp.
-  - App hoặc trang web của nhà cung cấp CKS cloud.
-- Sau đó khách tải file đã ký lên lại **ngay trên link ký của Odoo**.
-- **Odoo tự kiểm tra** rồi mới chấp nhận:
-  1. Chữ ký số hợp lệ và chứng thư được cấp bởi CA có phép tại Việt Nam.
-  2. Chứng thư chưa bị thu hồi.
-  3. **Nội dung hợp đồng giống hệt bản DMAG gửi**, chỉ có thêm chữ ký.
-  4. **Mã số thuế hoặc CCCD trong chứng thư khớp với khách hàng trong Odoo.** Đây là điểm quan trọng: nó chứng minh đúng công ty đó đã ký.
-- Cách này **không cần tích hợp với nhà cung cấp nào**, nên chi phí gần như bằng 0. Nó bao trọn cả những nhà cung cấp chưa làm Cách B.
-
-> 💡 **Khách là cá nhân chưa có CKS:** từ năm 2025, ứng dụng **VNeID** cho phép đăng ký chứng thư chữ ký số cá nhân miễn phí 12 tháng, với khoảng 8 nhà cung cấp tham gia. Ngoài ra, Nghị quyết 66.22/2026/NQ-CP có nội dung miễn phí cho cá nhân, chủ yếu phục vụ dịch vụ công. Cần kiểm tra thêm phạm vi dùng loại chứng thư miễn phí này cho hợp đồng thương mại trước khi khuyến nghị cho khách.
+> Cách C (tải về, ký bằng công cụ riêng, rồi tải lên) đã được **bỏ** theo yêu cầu: khách chỉ ký trực tuyến bằng cách A hoặc B.
 
 ### Tổng hợp: một trang ký, phủ hết các loại CKS
 
 | Khách đang có | Cách ký | Chi phí tích hợp |
 |---|---|---|
 | Không có CKS (đa số khách cá nhân) | Odoo Sign sẵn có, sau đó DMAG ký CKS | 0 (chỉ cần tích hợp CKS của DMAG) |
-| USB token của **bất kỳ** nhà nào | **A**: DMAG Ký số, hoặc **C**: Foxit/Adobe rồi tải lên | Làm 1 lần, dùng cho mọi nhà |
+| USB token của **bất kỳ** nhà nào | **A**: DMAG Ký số | Làm 1 lần, dùng cho mọi nhà |
 | CKS cloud VNPT / Viettel | **B**: xác nhận trên app | Theo từng nhà |
-| CKS cloud của nhà khác | **C**: ký bằng app/web của nhà đó rồi tải lên. Nếu nhiều khách dùng thì nâng lên **B** | 0, nâng cấp khi cần |
+| CKS cloud của nhà khác (FPT, MISA, BKAV, CA2…) | **B**: thêm adapter cho nhà đó. Trong lúc chờ, khách dùng USB token (A) nếu có | Vài ngày code/nhà, sau khi có tài liệu API + tài khoản đối tác |
 
 ---
 
@@ -128,10 +112,9 @@ flowchart TD
     Q -- Có --> P[Trang Ký số]
     P --> A[A. USB token<br/>DMAG Ký số]
     P --> B[B. App điện thoại<br/>SmartCA / MySign]
-    P --> C[C. Tải về, ký, tải lên]
     A --> V
     B --> V
-    C --> V[Odoo kiểm tra: chữ ký hợp lệ, chưa thu hồi,<br/>nội dung không đổi, MST/CCCD khớp khách]
+    C --> V[Odoo kiểm tra: chữ ký hợp lệ,<br/>nội dung không đổi, MST/CCCD khớp khách]
     V --> D[DMAG ký tự động bằng CKS tổ chức cloud<br/>+ dấu thời gian]
     D --> E[Gửi PDF cuối cho các bên<br/>lưu vào Odoo]
 ```
@@ -142,28 +125,24 @@ flowchart TD
 
 ---
 
-## 4. Lộ trình
+## 4. Lộ trình và tiến độ
 
-| Giai đoạn | Nội dung | Ước lượng* |
+| Giai đoạn | Nội dung | Tiến độ |
 |---|---|---|
-| **1** | Khung addon. **DMAG ký tự động** bằng CKS cloud + dấu thời gian. **Cách C** (tải lên và tự kiểm tra). Nút "Kiểm tra chữ ký" trong Odoo. | 3–4 tuần |
-| **2** | **Cách A**: phần mềm "DMAG Ký số" cho Windows (bộ cài một lần, dùng mọi token). | 2–3 tuần |
-| **3** | **Cách B**: adapter VNPT SmartCA và Viettel MySign. Các nhà khác làm theo nhu cầu. | 3–5 ngày mỗi nhà, sau khi có sandbox |
+| **1** | Addon `dmag_esign_cks`: hồ sơ ký số, trang ký của khách, DMAG ký tự động, dấu thời gian, kiểm tra chữ ký, trang xác nhận ký số | ✅ Xong bản chạy thử, 14/14 test Odoo + thử trên trình duyệt |
+| **2** | **Cách A**: phần mềm "DMAG Ký số" cho Windows (mọi token) | ✅ Code xong, test trên Linux. ⏳ **Cần thử trên Windows với token thật** |
+| **3** | **Cách B**: adapter VNPT SmartCA, Viettel MySign | ✅ Khung + adapter theo tài liệu công khai. ⏳ **Cần tài khoản sandbox để đối chiếu** |
+| **4** | Cầu nối với module ký của Bizapps và `dmag_contract` | ⏳ Cần mã nguồn / tên model của Bizapps (mẫu code đã có) |
+| **5** | Thêm nhà cung cấp cloud khác (FPT, MISA, BKAV, CA2…) | Theo nhu cầu, khi có tài liệu API |
 
-\* Thời gian code. Thủ tục với nhà cung cấp CA chạy song song.
+## 5. Việc cần anh/chị và Bizapps làm tiếp
 
-**Ngay sau giai đoạn 1** anh/chị đã ký pháp lý được cho **mọi khách**: khách không có CKS ký bằng Odoo, khách có CKS thì dùng Cách C. Giai đoạn 2 và 3 chỉ làm cho khách **tiện hơn**.
-
----
-
-## 5. Cần anh/chị duyệt và cung cấp
-
-- [ ] **Quan trọng nhất:** "Sign" mà anh/chị đã dùng là **Odoo Sign Enterprise**, **module ký của Bizapps**, hay **`sign_oca`**? (Odoo 17 Community không có sẵn Odoo Sign.)
-- [ ] Duyệt mô hình: **mặc định chữ ký Odoo + CKS DMAG**; khách cần thì ký CKS bằng Cách A/B/C.
-- [ ] Duyệt nhà cung cấp CKS cloud cho DMAG: **Viettel MySign** (dự phòng: VNPT SmartCA), sau khi hỏi về API ký tự động và giá.
-- [ ] Duyệt lộ trình 3 giai đoạn; cho phép bắt đầu code giai đoạn 1 trong repo này cho **Odoo 17**, tái sử dụng khung `dmag_esign_mysign` và nối với `dmag_contract`.
-- [ ] **Hỏi Bizapps:** (1) server có cài được thư viện Python **pyHanko** không; (2) quy trình deploy addon tự viết lên Odoo của mình.
-- [ ] **Liên hệ nhà cung cấp CKS đã chọn:** mua chứng thư số tổ chức loại ký từ xa có API ký tự động, và xin tài khoản sandbox tích hợp.
+- [ ] **Chọn nhà cung cấp CKS cloud cho DMAG** (đề xuất Viettel MySign, dự phòng VNPT SmartCA). Hỏi về API ký tự động cho chứng thư tổ chức, giá, và **tài khoản sandbox**.
+- [ ] **Đăng ký làm đối tác tích hợp** với VNPT SmartCA và Viettel MySign, để khách dùng 2 app này ký được trên trang của DMAG.
+- [ ] **Thử phần mềm DMAG Ký số trên 1–2 máy Windows** có USB token thật (VNPT, Viettel, BKAV…) theo checklist trong `agent/README.md`.
+- [ ] **Bizapps:** cài thư viện trong `requirements.txt`, cài addon, gửi tên model và hàm "hoàn tất ký" của module Sign để viết cầu nối.
+- [ ] **Ký số file DMAGKySo.exe** (chứng thư ký code) trước khi phát cho khách.
+- [ ] Nhập **Root CA quốc gia và CA gốc của các nhà cung cấp** vào menu Root CA tin cậy.
 
 ## Nguồn bổ sung (ngoài các nguồn ở v1)
 

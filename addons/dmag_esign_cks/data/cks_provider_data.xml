@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Khung cấu hình sẵn: chỉ cần điền thông tin tài khoản đối tác rồi bật lên. -->
+    <record id="provider_vnpt_smartca" model="dmag.cks.provider">
+        <field name="name">VNPT SmartCA</field>
+        <field name="sequence">20</field>
+        <field name="provider_type">vnpt_smartca</field>
+        <field name="customer_label">VNPT SmartCA</field>
+        <field name="customer_hint">Tài khoản SmartCA: số CCCD (cá nhân) hoặc mã số thuế (tổ chức)</field>
+        <field name="use_for_customer" eval="True"/>
+        <field name="active" eval="False"/>
+    </record>
+    <record id="provider_viettel_mysign" model="dmag.cks.provider">
+        <field name="name">Viettel MySign</field>
+        <field name="sequence">30</field>
+        <field name="provider_type">viettel_mysign</field>
+        <field name="customer_label">Viettel MySign</field>
+        <field name="customer_hint">Tài khoản MySign: số CCCD (cá nhân) hoặc mã số thuế (tổ chức)</field>
+        <field name="use_for_customer" eval="True"/>
+        <field name="active" eval="False"/>
+    </record>
+</odoo>

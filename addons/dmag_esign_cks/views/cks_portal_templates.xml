@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="cks_sign_page" name="Trang ký số của khách">
+        <t t-out="doctype"/>
+        <html lang="vi">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta name="robots" content="noindex"/>
+                <title>Ký số – <t t-out="envelope.document_name"/></title>
+                <link rel="stylesheet" href="/dmag_esign_cks/static/src/css/cks_sign.css"/>
+            </head>
+            <body>
+                <header class="cks-header">
+                    <div class="cks-brand"><t t-out="envelope.company_id.name"/> · Ký số hợp đồng</div>
+                    <div class="cks-ref"><t t-out="envelope.name"/></div>
+                </header>
+                <main class="cks-main">
+                    <section class="cks-doc">
+                        <h1 t-out="envelope.document_name"/>
+                        <p class="cks-meta">Khách hàng: <strong t-out="envelope.partner_id.commercial_partner_id.name"/></p>
+                        <iframe class="cks-pdf" t-att-src="'/cks/ky/%s/pdf?access_token=%s' % (envelope.id, token)"
+                                title="Tài liệu"/>
+                        <a class="cks-link" target="_blank"
+                           t-att-href="'/cks/ky/%s/pdf?access_token=%s' % (envelope.id, token)">Mở tài liệu trong tab mới</a>
+                    </section>
+                    <aside class="cks-panel">
+                        <div id="cks-status" class="cks-card"/>
+                        <div id="cks-sign" class="cks-card" hidden="hidden">
+                            <h2>Chọn cách ký số</h2>
+                            <div class="cks-tabs" role="tablist">
+                                <button type="button" class="cks-tab active" data-tab="usb" role="tab">USB token</button>
+                                <button type="button" class="cks-tab" data-tab="cloud" role="tab">Ứng dụng trên điện thoại</button>
+                            </div>
+                            <div class="cks-pane" data-pane="usb">
+                                <div id="cks-usb"/>
+                            </div>
+                            <div class="cks-pane" data-pane="cloud" hidden="hidden">
+                                <t t-if="providers">
+                                    <label for="cks-provider">Nhà cung cấp chữ ký số</label>
+                                    <select id="cks-provider">
+                                        <t t-foreach="providers" t-as="provider">
+                                            <option t-att-value="provider.id" t-att-data-hint="provider.customer_hint">
+                                                <t t-out="provider.customer_label or provider.name"/>
+                                            </option>
+                                        </t>
+                                    </select>
+                                    <label for="cks-remote-user">Tài khoản ký số</label>
+                                    <input id="cks-remote-user" type="text" autocomplete="off"/>
+                                    <small id="cks-remote-hint" class="cks-hint"/>
+                                    <button type="button" id="cks-cloud-start" class="cks-btn">Gửi yêu cầu ký</button>
+                                </t>
+                                <p t-else="" class="cks-hint">Chưa có nhà cung cấp ký từ xa nào được bật.</p>
+                            </div>
+                            <div id="cks-error" class="cks-error" hidden="hidden"/>
+                        </div>
+                        <p class="cks-legal">Chữ ký số có giá trị pháp lý tương đương chữ ký tay
+                            (Luật Giao dịch điện tử 2023, Điều 23). Hệ thống chỉ gửi mã băm của tài liệu
+                            đi ký, không gửi nội dung tài liệu.</p>
+                    </aside>
+                </main>
+                <script type="application/json" id="cks-config" t-out="config_json"/>
+                <script src="/dmag_esign_cks/static/src/js/cks_sign.js"/>
+            </body>
+        </html>
+    </template>
+</odoo>

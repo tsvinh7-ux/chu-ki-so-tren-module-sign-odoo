@@ -1,0 +1,5 @@
+# Thư viện Python cần cài thêm trên máy chủ Odoo 17 cho addon dmag_esign_cks.
+# pyOpenSSL và urllib3 được nâng cùng để tương thích với cryptography mới mà pyHanko cần.
+pyHanko==0.25.3
+pyOpenSSL==24.2.1
+urllib3==1.26.20

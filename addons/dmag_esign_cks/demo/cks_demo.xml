@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <function model="dmag.cks.trust.root" name="_dmag_cks_install_demo"/>
+</odoo>

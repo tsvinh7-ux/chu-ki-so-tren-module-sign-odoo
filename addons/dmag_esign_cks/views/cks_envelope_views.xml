@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cks_envelope_tree" model="ir.ui.view">
+        <field name="name">dmag.cks.envelope.tree</field>
+        <field name="model">dmag.cks.envelope</field>
+        <field name="arch" type="xml">
+            <tree decoration-success="state == 'done'" decoration-warning="state in ('customer', 'company')"
+                  decoration-muted="state == 'cancel'">
+                <field name="name"/>
+                <field name="document_name"/>
+                <field name="partner_id"/>
+                <field name="user_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="create_date" string="Tạo lúc" optional="show"/>
+                <field name="done_date" optional="show"/>
+                <field name="verify_ok" optional="hide"/>
+                <field name="state" widget="badge" decoration-success="state == 'done'"
+                       decoration-warning="state in ('customer', 'company')"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_cks_envelope_search" model="ir.ui.view">
+        <field name="name">dmag.cks.envelope.search</field>
+        <field name="model">dmag.cks.envelope</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="document_name"/>
+                <field name="partner_id"/>
+                <filter name="to_sign" string="Đang chờ ký" domain="[('state', 'in', ('customer', 'company'))]"/>
+                <filter name="done" string="Hoàn tất" domain="[('state', '=', 'done')]"/>
+                <filter name="mine" string="Của tôi" domain="[('user_id', '=', uid)]"/>
+                <group expand="0" string="Nhóm theo">
+                    <filter name="group_state" string="Trạng thái" context="{'group_by': 'state'}"/>
+                    <filter name="group_partner" string="Khách hàng" context="{'group_by': 'partner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_cks_envelope_form" model="ir.ui.view">
+        <field name="name">dmag.cks.envelope.form</field>
+        <field name="model">dmag.cks.envelope</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_send" type="object" string="Gửi ký số" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_copy_link" type="object" string="Mở trang ký của khách" invisible="state != 'customer'"/>
+                    <button name="action_retry_company" type="object" string="DMAG ký lại" invisible="state != 'company'"/>
+                    <button name="action_verify" type="object" string="Kiểm tra chữ ký" invisible="state in ('draft', 'cancel')"/>
+                    <button name="action_reset_draft" type="object" string="Về nháp" invisible="state not in ('customer', 'cancel')"/>
+                    <button name="action_cancel" type="object" string="Hủy" invisible="state in ('done', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,customer,company,done"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-danger" role="alert" invisible="not error_message">
+                        <field name="error_message"/>
+                    </div>
+                    <div class="oe_title">
+                        <span class="text-muted"><field name="name" readonly="1"/></span>
+                        <h1><field name="document_name" placeholder="Hợp đồng dịch vụ..." readonly="state != 'draft'"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_id" readonly="state != 'draft'"/>
+                            <field name="user_id"/>
+                            <field name="company_provider_id" readonly="state != 'draft'"/>
+                            <field name="add_confirm_page" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="source_pdf" filename="source_filename" readonly="state != 'draft'"/>
+                            <field name="source_filename" invisible="1"/>
+                            <field name="signed_pdf" filename="signed_filename" invisible="state != 'done'"/>
+                            <field name="signed_filename" invisible="1"/>
+                            <field name="source_sha256" invisible="not source_sha256"/>
+                            <field name="res_model" invisible="not res_model"/>
+                            <field name="res_id" invisible="not res_model"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Người ký" name="signers">
+                            <field name="signer_ids" readonly="state != 'draft'">
+                                <tree editable="bottom" decoration-success="state == 'signed'"
+                                      decoration-warning="state == 'waiting'" decoration-danger="state == 'error'">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="role"/>
+                                    <field name="label"/>
+                                    <field name="partner_id"/>
+                                    <field name="signer_kind"/>
+                                    <field name="expected_tax_id" optional="show"/>
+                                    <field name="expected_personal_id" optional="show"/>
+                                    <field name="strict_identity" optional="hide"/>
+                                    <field name="method" optional="show"/>
+                                    <field name="provider_id" optional="hide"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="signed_at" optional="show"/>
+                                    <field name="cert_subject" optional="show"/>
+                                    <field name="cert_ids" optional="hide"/>
+                                    <field name="signed_ip" optional="hide"/>
+                                    <field name="message" optional="show"/>
+                                </tree>
+                            </field>
+                            <p class="text-muted">Khách ký trước, DMAG ký sau cùng (tự động thêm khi gửi).
+                                Bỏ trống người ký phía khách nếu khách đã ký điện tử trên Odoo và chỉ cần DMAG đóng chữ ký số.</p>
+                        </page>
+                        <page string="Kiểm tra chữ ký" name="verify" invisible="not verified_at">
+                            <group>
+                                <field name="verify_ok"/>
+                                <field name="verified_at"/>
+                            </group>
+                            <field name="verify_html" nolabel="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_cks_envelope" model="ir.actions.act_window">
+        <field name="name">Hồ sơ ký số</field>
+        <field name="res_model">dmag.cks.envelope</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_to_sign': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Tạo hồ sơ ký số đầu tiên</p>
+            <p>Tải lên hợp đồng PDF (hoặc gửi từ module ký / hợp đồng), chọn khách hàng và bấm Gửi ký số.</p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="mail_template_cks_request" model="mail.template">
+        <field name="name">Ký số: mời khách ký</field>
+        <field name="model_id" ref="model_dmag_cks_envelope"/>
+        <field name="subject">Mời ký số: {{ object.document_name }}</field>
+        <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email_formatted or user.email_formatted) }}</field>
+        <field name="partner_to">{{ object.partner_id.id }}</field>
+        <field name="lang">{{ object.partner_id.lang }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Kính gửi <t t-out="object.partner_id.name or ''"/>,</p>
+    <p><t t-out="object.company_id.name or ''"/> gửi Quý khách tài liệu
+        <strong t-out="object.document_name or ''"/> (mã <t t-out="object.name or ''"/>) để ký số.</p>
+    <p>Quý khách có thể ký bằng <strong>USB token</strong> của bất kỳ nhà cung cấp nào, hoặc bằng
+        <strong>ứng dụng ký số trên điện thoại</strong>.</p>
+    <p style="margin: 24px 0;">
+        <a t-att-href="object.get_portal_url()"
+           style="background: #0b6e4f; color: #fff; padding: 10px 18px; border-radius: 6px; text-decoration: none;">Xem và ký số</a>
+    </p>
+    <p style="color: #666; font-size: 12px;">Chữ ký số có giá trị pháp lý tương đương chữ ký tay theo Luật Giao dịch điện tử 2023.</p>
+</div>
+        </field>
+    </record>
+    <record id="mail_template_cks_done" model="mail.template">
+        <field name="name">Ký số: hoàn tất</field>
+        <field name="model_id" ref="model_dmag_cks_envelope"/>
+        <field name="subject">Đã ký số đầy đủ: {{ object.document_name }}</field>
+        <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email_formatted or user.email_formatted) }}</field>
+        <field name="partner_to">{{ object.partner_id.id }}</field>
+        <field name="lang">{{ object.partner_id.lang }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Kính gửi <t t-out="object.partner_id.name or ''"/>,</p>
+    <p>Tài liệu <strong t-out="object.document_name or ''"/> đã được các bên ký số đầy đủ.</p>
+    <p style="margin: 24px 0;">
+        <a t-att-href="object.get_portal_url()"
+           style="background: #0b6e4f; color: #fff; padding: 10px 18px; border-radius: 6px; text-decoration: none;">Xem và tải bản đã ký số</a>
+    </p>
+</div>
+        </field>
+    </record>
+</odoo>

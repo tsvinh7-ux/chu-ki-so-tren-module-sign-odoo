@@ -1,0 +1,3 @@
+__pycache__/
+*.pyc
+addons/dmag_esign_cks/static/agent/*.exe

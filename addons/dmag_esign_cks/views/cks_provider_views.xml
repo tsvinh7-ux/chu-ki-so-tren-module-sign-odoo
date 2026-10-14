@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cks_provider_tree" model="ir.ui.view">
+        <field name="name">dmag.cks.provider.tree</field>
+        <field name="model">dmag.cks.provider</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="provider_type"/>
+                <field name="use_for_company"/>
+                <field name="use_for_customer"/>
+                <field name="cert_subject" optional="show"/>
+                <field name="cert_valid_to" optional="show"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_cks_provider_form" model="ir.ui.view">
+        <field name="name">dmag.cks.provider.form</field>
+        <field name="model">dmag.cks.provider</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_test" type="object" string="Kiểm tra kết nối / chứng thư" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Đã lưu trữ" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="alert alert-warning" role="alert" invisible="provider_type != 'demo_cloud'">
+                        Nhà cung cấp GIẢ LẬP: chứng thư cấp từ Root CA demo, không có giá trị pháp lý. Chỉ dùng để chạy thử.
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Ví dụ: VNPT SmartCA"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="provider_type"/>
+                            <field name="use_for_company"/>
+                            <field name="use_for_customer"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="cert_subject"/>
+                            <field name="cert_valid_to"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Kết nối API" name="api" invisible="provider_type == 'local_cert'">
+                            <group>
+                                <group>
+                                    <field name="base_url" invisible="provider_type == 'demo_cloud'"/>
+                                    <field name="client_id" invisible="provider_type == 'demo_cloud'"/>
+                                    <field name="client_secret" password="True" invisible="provider_type == 'demo_cloud'"/>
+                                    <field name="profile_id" invisible="provider_type != 'viettel_mysign'"/>
+                                    <field name="timeout"/>
+                                    <field name="request_ttl"/>
+                                </group>
+                                <group>
+                                    <field name="company_user_id" invisible="not use_for_company"/>
+                                    <field name="customer_label" invisible="not use_for_customer"/>
+                                    <field name="customer_hint" invisible="not use_for_customer"/>
+                                    <field name="demo_delay" invisible="provider_type != 'demo_cloud'"/>
+                                    <field name="demo_root_id" invisible="provider_type != 'demo_cloud'"/>
+                                </group>
+                            </group>
+                            <group string="Endpoint tùy chỉnh" invisible="provider_type == 'demo_cloud'">
+                                <field name="paths_json" nolabel="1" colspan="2"
+                                       placeholder='{"sign": "/v1/signatures/sign"}'/>
+                            </group>
+                        </page>
+                        <page string="Chứng thư trên máy chủ" name="local" invisible="provider_type != 'local_cert'">
+                            <group>
+                                <field name="p12_file"/>
+                                <field name="p12_password" password="True"/>
+                            </group>
+                            <p class="text-muted">File .p12/.pfx chứa chứng thư số tổ chức và khóa bí mật. Dùng khi CA cấp chứng thư
+                                dạng file hoặc để chạy thử. Khóa được lưu trong cơ sở dữ liệu nên chỉ quản trị viên xem được.</p>
+                        </page>
+                        <page string="Dấu thời gian" name="tsa">
+                            <group>
+                                <field name="tsa_url" placeholder="http://tsa.example.vn"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_cks_provider" model="ir.actions.act_window">
+        <field name="name">Nhà cung cấp chữ ký số</field>
+        <field name="res_model">dmag.cks.provider</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>
