@@ -27,7 +27,7 @@ class DmagCksTrustRootDemo(models.Model):
         dmag = demo_pki.issue(root, company.name.upper(), company.name.upper(), 'MST:%s' % company.vat)
         Provider = self.env['dmag.cks.provider']
         Provider.create({
-            'name': 'CKS tổ chức DMAG (file demo)', 'sequence': 1, 'provider_type': 'local_cert',
+            'name': 'CKS tổ chức DMAG (file demo – ký tự động)', 'sequence': 1, 'provider_type': 'local_cert',
             'use_for_company': True, 'use_for_customer': False,
             'p12_file': base64.b64encode(demo_pki.to_pkcs12(dmag, b'demo')), 'p12_password': 'demo'})
         Provider.create({

@@ -1,4 +1,5 @@
 import base64
+import uuid
 from datetime import timedelta
 
 from odoo import _, api, fields, models
@@ -22,7 +23,8 @@ class DmagCksSigner(models.Model):
 
     envelope_id = fields.Many2one('dmag.cks.envelope', required=True, ondelete='cascade', index=True)
     sequence = fields.Integer(default=10)
-    role = fields.Selection([('customer', 'Khách hàng'), ('company', 'DMAG')], required=True, default='customer')
+    role = fields.Selection([('customer', 'Khách hàng'), ('company', 'DMAG')], string='Bên', required=True,
+                            default='customer')
     label = fields.Char('Nhãn trên tài liệu', required=True, default=lambda self: _('BÊN B – KHÁCH HÀNG'))
     partner_id = fields.Many2one('res.partner', 'Người/đơn vị ký')
     signer_kind = fields.Selection([
@@ -41,11 +43,15 @@ class DmagCksSigner(models.Model):
         ('server', 'Chứng thư trên máy chủ'),
     ], string='Cách ký', readonly=True)
     provider_id = fields.Many2one('dmag.cks.provider', 'Nhà cung cấp')
+    access_token = fields.Char(
+        'Mã truy cập riêng', copy=False, groups='dmag_esign_cks.group_cks_user',
+        default=lambda self: str(uuid.uuid4()),
+        help='Link ký của người ký phía DMAG (khách dùng link chung của hồ sơ).')
     remote_user_id = fields.Char('Tài khoản ký từ xa')
     credential_id = fields.Char(readonly=True)
     transaction_id = fields.Char(readonly=True)
     request_deadline = fields.Datetime(readonly=True)
-    state = fields.Selection(SIGNER_STATES, default='pending', required=True, readonly=True)
+    state = fields.Selection(SIGNER_STATES, string='Trạng thái', default='pending', required=True, readonly=True)
     message = fields.Char('Ghi chú', readonly=True)
 
     # Trạng thái ký gián đoạn (giữa bước chuẩn bị và bước nhúng chữ ký)

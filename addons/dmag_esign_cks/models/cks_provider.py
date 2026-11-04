@@ -24,6 +24,7 @@ class DmagCksProvider(models.Model):
     active = fields.Boolean(default=True)
     company_id = fields.Many2one('res.company', string='Công ty', default=lambda self: self.env.company)
     provider_type = fields.Selection([
+        ('usb_token', 'USB token (người của DMAG ký trên máy tính)'),
         ('local_cert', 'Chứng thư số trên máy chủ (.p12/.pfx)'),
         ('vnpt_smartca', 'VNPT SmartCA (ký từ xa)'),
         ('viettel_mysign', 'Viettel MySign (ký từ xa)'),
@@ -140,6 +141,11 @@ class DmagCksProvider(models.Model):
     def action_test(self):
         """Kiểm tra cấu hình: đọc chứng thư (máy chủ) hoặc lấy chứng thư tài khoản DMAG (từ xa)."""
         self.ensure_one()
+        if self.provider_type == 'usb_token':
+            return {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
+                'type': 'info', 'title': _('Ký bằng USB token'),
+                'message': _('Khi đến lượt DMAG, người phụ trách bấm "DMAG ký bằng USB token" trên hồ sơ. '
+                             'Máy tính cần cắm token và cài phần mềm DMAG Ký số.')}}
         if self.provider_type == 'local_cert':
             _key, cert, _chain = self._local_material()
         else:

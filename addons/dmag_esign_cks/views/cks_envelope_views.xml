@@ -46,7 +46,11 @@
                 <header>
                     <button name="action_send" type="object" string="Gửi ký số" class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_copy_link" type="object" string="Mở trang ký của khách" invisible="state != 'customer'"/>
-                    <button name="action_retry_company" type="object" string="DMAG ký lại" invisible="state != 'company'"/>
+                    <button name="action_sign_company_usb" type="object" string="DMAG ký bằng USB token"
+                            class="btn-primary" invisible="not company_usb_turn"/>
+                    <button name="action_retry_company" type="object" string="DMAG ký lại"
+                            invisible="state != 'company' or company_usb_turn"/>
+                    <field name="company_usb_turn" invisible="1"/>
                     <button name="action_verify" type="object" string="Kiểm tra chữ ký" invisible="state in ('draft', 'cancel')"/>
                     <button name="action_reset_draft" type="object" string="Về nháp" invisible="state not in ('customer', 'cancel')"/>
                     <button name="action_cancel" type="object" string="Hủy" invisible="state in ('done', 'cancel')"/>

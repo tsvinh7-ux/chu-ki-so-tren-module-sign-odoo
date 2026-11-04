@@ -18,7 +18,7 @@
 
     // ------------------------------------------------------------- gọi Odoo
     function rpc(path, params) {
-        params = Object.assign({access_token: config.token}, params || {});
+        params = Object.assign({access_token: config.token, signer_token: config.signerToken || null}, params || {});
         return fetch(base + path, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -68,11 +68,14 @@
                 encodeURIComponent(config.token) + '">Tải bản đã ký số</a>';
         } else if (summary.waiting_company) {
             html += '<p class="cks-info">Bạn đã ký xong. Hệ thống đang chờ bên phát hành ký số…</p>';
+        } else if (summary.signer_role === 'company') {
+            html += '<p class="cks-info">Bạn đang ký với tư cách <strong>' + esc(summary.signer_label) +
+                '</strong>. Cắm USB token chứng thư số của công ty.</p>';
         } else if (summary.state === 'cancel') {
             html += '<p class="cks-error">Hồ sơ ký đã bị hủy.</p>';
         }
         $('cks-status').innerHTML = html;
-        var canSign = summary.signer_id && summary.state === 'customer';
+        var canSign = summary.signer_id && (summary.state === 'customer' || summary.state === 'company');
         $('cks-sign').hidden = !canSign;
         if (canSign && summary.signer_state === 'waiting') {
             showWaiting(summary.signer_message);
@@ -106,7 +109,7 @@
             summary = result;
             renderStatus();
             if (summary.done || summary.state === 'cancel' ||
-                (summary.state === 'customer' && summary.signer_state !== 'waiting')) {
+                (summary.signer_id && summary.signer_state !== 'waiting')) {
                 stopPolling();
             }
             return result;
@@ -285,11 +288,15 @@
         hint();
     }
 
+    if (summary.signer_role === 'company') {
+        // DMAG chỉ ký bằng USB token: ẩn tab ký từ xa.
+        document.querySelector('.cks-tabs').hidden = true;
+    }
     renderStatus();
-    if (summary.signer_id && summary.state === 'customer') {
+    if (summary.signer_id) {
         loadCertificates();
     }
-    if (summary.state === 'company' || summary.signer_state === 'waiting') {
+    if ((summary.state === 'company' && !summary.signer_id) || summary.signer_state === 'waiting') {
         startPolling();
     }
 })();

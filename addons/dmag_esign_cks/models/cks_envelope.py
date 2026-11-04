@@ -35,7 +35,7 @@ class DmagCksEnvelope(models.Model):
     """Hồ sơ ký số: một tài liệu PDF đi qua các chữ ký số (khách trước, DMAG sau)."""
     _name = 'dmag.cks.envelope'
     _description = 'Hồ sơ ký số'
-    _inherit = ['mail.thread', 'portal.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin']
     _order = 'id desc'
 
     name = fields.Char('Mã hồ sơ', readonly=True, copy=False, default='/')
@@ -43,7 +43,7 @@ class DmagCksEnvelope(models.Model):
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company, required=True)
     user_id = fields.Many2one('res.users', 'Phụ trách', default=lambda self: self.env.user, tracking=True)
     partner_id = fields.Many2one('res.partner', 'Khách hàng', required=True, tracking=True)
-    state = fields.Selection(STATES, default='draft', required=True, tracking=True, copy=False)
+    state = fields.Selection(STATES, string='Trạng thái', default='draft', required=True, tracking=True, copy=False)
 
     res_model = fields.Char('Model nguồn', index=True, readonly=True)
     res_id = fields.Many2oneReference('ID nguồn', model_field='res_model', index=True, readonly=True)
@@ -60,6 +60,7 @@ class DmagCksEnvelope(models.Model):
         'dmag.cks.provider', 'CKS của DMAG', domain=[('use_for_company', '=', True)],
         default=lambda self: self.env['dmag.cks.provider'].search([('use_for_company', '=', True)], limit=1))
     add_confirm_page = fields.Boolean('Thêm trang xác nhận ký số', default=True)
+    company_usb_turn = fields.Boolean('Đến lượt DMAG ký USB token', compute='_compute_company_usb_turn')
 
     verify_ok = fields.Boolean('Chữ ký hợp lệ', readonly=True, copy=False)
     verify_html = fields.Html('Kết quả kiểm tra', readonly=True, sanitize=False, copy=False)
@@ -71,6 +72,12 @@ class DmagCksEnvelope(models.Model):
     def _compute_signed_filename(self):
         for env in self:
             env.signed_filename = '%s - da ky so.pdf' % (env.document_name or env.name)
+
+    @api.depends('state', 'signer_ids.state', 'signer_ids.method')
+    def _compute_company_usb_turn(self):
+        for env in self:
+            signer = env._current_signer() if env.state == 'company' else env.signer_ids.browse()
+            env.company_usb_turn = bool(signer) and signer.role == 'company' and signer.method == 'usb'
 
     def _compute_access_url(self):
         super()._compute_access_url()
@@ -157,15 +164,18 @@ class DmagCksEnvelope(models.Model):
     def _add_company_signer(self):
         self.ensure_one()
         provider = self.company_provider_id
+        usb = provider.provider_type == 'usb_token'
         self.env['dmag.cks.signer'].create({
             'envelope_id': self.id, 'sequence': 1000, 'role': 'company',
             'label': _('BÊN A – %s', self.company_id.name.upper()),
             'partner_id': self.company_id.partner_id.id, 'signer_kind': 'organization',
-            'method': 'server' if provider.provider_type == 'local_cert' else 'cloud',
+            'method': {'local_cert': 'server', 'usb_token': 'usb'}.get(provider.provider_type, 'cloud'),
             'provider_id': provider.id,
             'remote_user_id': provider.company_user_id or (
                 'MST:%s' % (self.company_id.vat or '') if provider.provider_type == 'demo_cloud' else False),
-            'strict_identity': False,
+            # Ký bằng USB token: bắt buộc đúng chứng thư tổ chức của chính công ty (khớp MST).
+            'expected_tax_id': pades.normalize_id(self.company_id.vat) if usb and self.company_id.vat else False,
+            'strict_identity': usb,
         })
 
     def action_copy_link(self):
@@ -271,6 +281,9 @@ class DmagCksEnvelope(models.Model):
         if not signer or signer != self._current_signer():
             return
         provider = signer.provider_id
+        if signer.method == 'usb':
+            self._notify_company_usb(signer)
+            return
         try:
             if provider.provider_type == 'local_cert':
                 key_pem, cert, chain = provider._local_material()
@@ -290,10 +303,33 @@ class DmagCksEnvelope(models.Model):
             self.message_post(body=_('DMAG chưa ký được: %s', exc))
             _logger.warning('CKS %s: DMAG chưa ký được: %s', self.name, exc)
 
+    def _company_sign_url(self, signer):
+        self.ensure_one()
+        self._portal_ensure_token()
+        return '/cks/ky/%s?access_token=%s&signer_token=%s' % (self.id, self.access_token, signer.sudo().access_token)
+
+    def _notify_company_usb(self, signer):
+        """Đến lượt DMAG ký bằng USB token: giao việc cho người phụ trách."""
+        user = self.user_id or self.env.user
+        self.activity_schedule(
+            'mail.mail_activity_data_todo', user_id=user.id,
+            summary=_('DMAG ký số bằng USB token'),
+            note=_('Khách đã ký số xong. Mở hồ sơ và bấm "DMAG ký bằng USB token".'))
+        self.message_post(body=_('Khách đã ký số. Đến lượt DMAG ký bằng USB token.'))
+
+    def action_sign_company_usb(self):
+        """Mở trang ký cho người của DMAG (cắm USB token chứng thư tổ chức)."""
+        self.ensure_one()
+        signer = self._current_signer()
+        if self.state != 'company' or not signer or signer.role != 'company' or signer.method != 'usb':
+            raise UserError(_('Hồ sơ chưa đến lượt DMAG ký bằng USB token.'))
+        return {'type': 'ir.actions.act_url', 'url': self._company_sign_url(signer), 'target': 'new'}
+
     def _done(self):
         self.ensure_one()
         pdf = _raw(self.current_pdf)
         self.write({'state': 'done', 'signed_pdf': _b64(pdf), 'done_date': fields.Datetime.now()})
+        self.activity_ids.filtered(lambda a: a.user_id).action_feedback(feedback=_('Đã ký số đầy đủ.'))
         self.action_verify()
         attachment = self.env['ir.attachment'].create({
             'name': self.signed_filename, 'datas': _b64(pdf), 'mimetype': 'application/pdf',
@@ -303,6 +339,11 @@ class DmagCksEnvelope(models.Model):
             record = self.env[self.res_model].browse(self.res_id).exists()
             if record and hasattr(record, '_dmag_cks_on_done'):
                 record._dmag_cks_on_done(self)
+            elif record and hasattr(record, 'message_post'):
+                # Module ký không biết addon: gửi bản đã ký số vào trao đổi của chính yêu cầu ký.
+                copy = attachment.copy({'res_model': record._name, 'res_id': record.id})
+                record.message_post(body=_('Đã ký số đầy đủ (hồ sơ %s). File kèm theo.', self.name),
+                                    attachment_ids=copy.ids)
         template = self.env.ref('dmag_esign_cks.mail_template_cks_done', raise_if_not_found=False)
         if template and self.partner_id.email:
             self.message_post_with_source(template, subtype_xmlid='mail.mt_comment')
@@ -391,18 +432,37 @@ class DmagCksEnvelope(models.Model):
             envelope.action_send()
         return envelope
 
-    def _portal_summary(self):
-        """Dữ liệu cho trang ký của khách."""
+    def _signer_for_visitor(self, signer_token=None):
+        """Người ký mà khách truy cập trang được phép ký thay lúc này (hoặc rỗng).
+
+        Khách dùng link chung của hồ sơ. Người của DMAG cần thêm ``signer_token`` riêng.
+        """
         self.ensure_one()
         signer = self._current_signer()
+        if not signer or self.state not in ('customer', 'company'):
+            return signer.browse()
+        if signer.role == 'customer':
+            return signer
+        if signer.method == 'usb' and signer_token and signer.sudo().access_token and \
+                consteq(signer.sudo().access_token, signer_token):
+            return signer
+        return signer.browse()
+
+    def _portal_summary(self, signer_token=None):
+        """Dữ liệu cho trang ký."""
+        self.ensure_one()
+        signer = self._current_signer()
+        visitor = self._signer_for_visitor(signer_token)
         return {
             'state': self.state,
             'state_label': dict(STATES)[self.state],
-            'signer_id': signer.id if signer and signer.role == 'customer' else False,
+            'signer_id': visitor.id or False,
+            'signer_role': visitor.role or False,
+            'signer_label': visitor.label or '',
             'signer_state': signer.state if signer else False,
             'signer_message': signer.message if signer else False,
             'done': self.state == 'done',
-            'waiting_company': self.state == 'company',
+            'waiting_company': self.state == 'company' and not visitor,
             'signers': [{'label': s.label, 'state': s.state, 'subject': s.cert_subject or '',
                          'signed_at': s.signed_at and s.signed_at.strftime('%d/%m/%Y %H:%M') or ''}
                         for s in self.signer_ids.sorted('sequence')],

@@ -132,7 +132,8 @@ flowchart TD
 | **1** | Addon `dmag_esign_cks`: hồ sơ ký số, trang ký của khách, DMAG ký tự động, dấu thời gian, kiểm tra chữ ký, trang xác nhận ký số | ✅ Xong bản chạy thử, 14/14 test Odoo + thử trên trình duyệt |
 | **2** | **Cách A**: phần mềm "DMAG Ký số" cho Windows (mọi token) | ✅ Code xong, test trên Linux. ⏳ **Cần thử trên Windows với token thật** |
 | **3** | **Cách B**: adapter VNPT SmartCA, Viettel MySign | ✅ Khung + adapter theo tài liệu công khai. ⏳ **Cần tài khoản sandbox để đối chiếu** |
-| **4** | Cầu nối với module ký của Bizapps và `dmag_contract` | ⏳ Cần mã nguồn / tên model của Bizapps (mẫu code đã có) |
+| **4** | Nối với module Sign của Bizapps: tự tạo hồ sơ ký số khi Sign hoàn tất, nút "Gửi ký số (CKS)" | ✅ Làm theo tên model của Odoo Sign, cấu hình được, test với Sign giả lập. ⏳ Cần chạy thử trên bản Sign thật của Bizapps |
+| **4b** | **Hai bên cùng ký USB token:** DMAG ký bằng token chứng thư tổ chức trên cùng trang ký | ✅ Xong (mặc định) |
 | **5** | Thêm nhà cung cấp cloud khác (FPT, MISA, BKAV, CA2…) | Theo nhu cầu, khi có tài liệu API |
 
 ## 5. Việc cần anh/chị và Bizapps làm tiếp

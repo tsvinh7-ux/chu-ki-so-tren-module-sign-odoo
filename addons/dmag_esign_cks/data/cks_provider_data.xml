@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
+    <!-- Mặc định: người của DMAG ký bằng USB token chứng thư tổ chức (không cần hợp đồng với nhà cung cấp). -->
+    <record id="provider_company_usb" model="dmag.cks.provider">
+        <field name="name">CKS tổ chức DMAG (USB token)</field>
+        <field name="sequence">0</field>
+        <field name="provider_type">usb_token</field>
+        <field name="use_for_company" eval="True"/>
+        <field name="use_for_customer" eval="False"/>
+    </record>
     <!-- Khung cấu hình sẵn: chỉ cần điền thông tin tài khoản đối tác rồi bật lên. -->
     <record id="provider_vnpt_smartca" model="dmag.cks.provider">
         <field name="name">VNPT SmartCA</field>
@@ -17,6 +25,11 @@
         <field name="customer_label">Viettel MySign</field>
         <field name="customer_hint">Tài khoản MySign: số CCCD (cá nhân) hoặc mã số thuế (tổ chức)</field>
         <field name="use_for_customer" eval="True"/>
+        <field name="active" eval="False"/>
+    </record>
+    <!-- Kết nối với module ký kiểu Odoo Sign (Bizapps). Bấm "Kích hoạt" trong Cấu hình để bật. -->
+    <record id="sign_link_default" model="dmag.cks.sign.link">
+        <field name="name">Module Sign (kiểu Odoo Sign)</field>
         <field name="active" eval="False"/>
     </record>
 </odoo>

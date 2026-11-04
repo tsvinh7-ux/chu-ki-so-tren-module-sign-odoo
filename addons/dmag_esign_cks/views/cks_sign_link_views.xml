@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cks_sign_link_tree" model="ir.ui.view">
+        <field name="name">dmag.cks.sign.link.tree</field>
+        <field name="model">dmag.cks.sign.link</field>
+        <field name="arch" type="xml">
+            <tree decoration-muted="not active">
+                <field name="name"/>
+                <field name="model_name"/>
+                <field name="mode"/>
+                <field name="require_customer"/>
+                <field name="last_run"/>
+                <field name="last_message" optional="show"/>
+                <field name="active" widget="boolean_toggle" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_cks_sign_link_form" model="ir.ui.view">
+        <field name="name">dmag.cks.sign.link.form</field>
+        <field name="model">dmag.cks.sign.link</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_activate" type="object" string="Kích hoạt / kiểm tra" class="btn-primary"/>
+                    <button name="action_deactivate" type="object" string="Tắt kết nối" invisible="not active"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Chưa bật" bg_color="text-bg-warning" invisible="active"/>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <p class="text-muted" style="max-width: 82%;">Addon không sửa module ký. Khi một yêu cầu ký hoàn tất trên module ký,
+                        Odoo lấy file PDF đã ký để tạo hồ sơ ký số: khách ký bằng USB token hoặc app, rồi DMAG ký.
+                        Mặc định điền sẵn theo Odoo Sign. Nếu module của Bizapps đặt tên khác, sửa các ô bên dưới.</p>
+                    <group>
+                        <group string="Cách hoạt động">
+                            <field name="mode"/>
+                            <field name="require_customer"/>
+                            <field name="days_back"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group string="Module ký">
+                            <field name="model_name"/>
+                            <field name="state_field"/>
+                            <field name="done_value"/>
+                            <field name="document_field"/>
+                            <field name="name_field"/>
+                            <field name="partner_field"/>
+                        </group>
+                    </group>
+                    <group string="Tình trạng">
+                        <field name="server_action_id"/>
+                        <field name="last_run"/>
+                        <field name="last_message"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_cks_sign_link" model="ir.actions.act_window">
+        <field name="name">Kết nối module ký</field>
+        <field name="res_model">dmag.cks.sign.link</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+</odoo>

@@ -6,7 +6,8 @@ trên module ký của Odoo, **không sửa module ký**. Mục tiêu: hợp đ�
 
 - Khách ký bằng **USB token của bất kỳ nhà cung cấp nào**, qua phần mềm **DMAG Ký số** (cài 1 lần).
 - Khách ký bằng **app ký số từ xa** (VNPT SmartCA, Viettel MySign; adapter cấu hình được).
-- **DMAG tự động ký** bằng chứng thư số tổ chức, kèm dấu thời gian.
+- **DMAG ký bằng USB token** chứng thư tổ chức (mặc định), hoặc ký tự động bằng file chứng thư / ký từ xa.
+- **Tự nối với module Sign** (kiểu Odoo Sign, bản Bizapps): yêu cầu ký hoàn tất thì tự tạo hồ sơ ký số.
 - Odoo **tự kiểm tra** chữ ký: toàn vẹn, chuỗi tin cậy, **MST/CCCD khớp khách hàng**.
 
 | Thư mục | Nội dung |

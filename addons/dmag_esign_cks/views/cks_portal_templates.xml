@@ -27,7 +27,8 @@
                     <aside class="cks-panel">
                         <div id="cks-status" class="cks-card"/>
                         <div id="cks-sign" class="cks-card" hidden="hidden">
-                            <h2>Chọn cách ký số</h2>
+                            <h2 t-if="is_company">DMAG ký số bằng USB token</h2>
+                            <h2 t-else="">Chọn cách ký số</h2>
                             <div class="cks-tabs" role="tablist">
                                 <button type="button" class="cks-tab active" data-tab="usb" role="tab">USB token</button>
                                 <button type="button" class="cks-tab" data-tab="cloud" role="tab">Ứng dụng trên điện thoại</button>

@@ -27,6 +27,7 @@ module ký của Odoo, addon thêm bước ký số:
         'data/cks_provider_data.xml',
         'views/cks_provider_views.xml',
         'views/cks_trust_root_views.xml',
+        'views/cks_sign_link_views.xml',
         'views/cks_envelope_views.xml',
         'views/res_partner_views.xml',
         'views/cks_portal_templates.xml',

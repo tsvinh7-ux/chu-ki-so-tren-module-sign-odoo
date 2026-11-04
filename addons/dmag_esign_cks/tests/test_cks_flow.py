@@ -186,6 +186,44 @@ class TestCksPortal(HttpCase):
             'signature': base64.b64encode(_sign_rsa(issued['key_pem'], digest)).decode()})
         self.assertTrue(done['result']['done'], done)
 
+    def _usb_http(self, envelope, signer, issued, signer_token=None):
+        base = '/cks/ky/%s' % envelope.id
+        params = {'access_token': envelope.access_token, 'signer_id': signer.id,
+                  'cert': base64.b64encode(issued['cert_der']).decode()}
+        if signer_token:
+            params['signer_token'] = signer_token
+        prep = self._json(base + '/usb/prepare', params)
+        if 'error' in prep:
+            return prep
+        digest = base64.b64decode(prep['result']['hash'])
+        params.pop('cert')
+        params['signature'] = base64.b64encode(_sign_rsa(issued['key_pem'], digest)).decode()
+        return self._json(base + '/usb/finalize', params)
+
+    def test_company_usb_over_http(self):
+        self.env.company.vat = '0110085510'
+        self.env['dmag.cks.provider'].create({
+            'name': 'DMAG USB', 'sequence': -1, 'provider_type': 'usb_token',
+            'use_for_company': True, 'use_for_customer': False})
+        clinic = self.envelope.partner_id
+        pdf = self.env['dmag.cks.trust.root']._dmag_cks_sample_pdf('HĐ usb', clinic.name)
+        envelope = self.env['dmag.cks.envelope']._dmag_cks_create(pdf, 'HĐ usb', clinic, signer_kind='organization')
+        customer = envelope._current_signer()
+        done = self._usb_http(envelope, customer,
+                              demo_pki.issue(self.root, 'NGUYEN VAN A', 'NK PORTAL', 'MST:0109999999'))
+        self.assertEqual(done['result']['state'], 'company', done)
+        self.assertTrue(done['result']['waiting_company'])
+        company = envelope._current_signer()
+        dmag = demo_pki.issue(self.root, 'DMAG', 'CONG TY DMAG', 'MST:0110085510')
+        # Link chung của khách không ký thay DMAG được
+        denied = self._usb_http(envelope, company, dmag)
+        self.assertIn('error', denied)
+        page = self.url_open('/cks/ky/%s?access_token=%s&signer_token=%s' % (
+            envelope.id, envelope.access_token, company.access_token))
+        self.assertIn('DMAG ký số bằng USB token', page.text)
+        done = self._usb_http(envelope, company, dmag, signer_token=company.access_token)
+        self.assertTrue(done['result']['done'], done)
+
     def test_cloud_over_http_and_wrong_token(self):
         base = '/cks/ky/%s' % self.envelope.id
         signer = self.envelope._current_signer()
@@ -195,3 +233,52 @@ class TestCksPortal(HttpCase):
         ok = self._json(base + '/cloud/start', {'access_token': self.envelope.access_token, 'signer_id': signer.id,
                                                 'provider_id': self.cloud.id, 'remote_user_id': '0109999999'})
         self.assertTrue(ok['result']['done'], ok)
+
+
+@tagged('post_install', '-at_install', 'dmag_cks')
+class TestCksCompanyUsb(CksCommon):
+    """Cả hai bên ký bằng USB token: khách trước, người của DMAG sau."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env.company.vat = '0110085510'
+        cls.company_provider.use_for_company = False
+        cls.usb_provider = cls.env['dmag.cks.provider'].create({
+            'name': 'DMAG USB', 'sequence': 0, 'provider_type': 'usb_token',
+            'use_for_company': True, 'use_for_customer': False})
+        cls.dmag_token = demo_pki.issue(cls.root, 'DMAG', 'CONG TY DMAG', 'MST:0110085510')
+
+    def test_both_sides_usb(self):
+        envelope = self._envelope()
+        self.assertEqual(envelope.company_provider_id, self.usb_provider)
+        company_signer = envelope.signer_ids.filtered(lambda s: s.role == 'company')
+        self.assertEqual(company_signer.method, 'usb')
+        self.assertEqual(company_signer.expected_tax_id, '0110085510')
+        self.assertFalse(envelope.company_usb_turn)
+        self._usb_sign(envelope, demo_pki.issue(self.root, 'NGUYEN VAN A', 'NHA KHOA TEST', 'MST:0109999999'))
+        # Khách xong → chờ DMAG, không tự ký, có việc cần làm cho người phụ trách
+        self.assertEqual(envelope.state, 'company')
+        self.assertTrue(envelope.company_usb_turn)
+        self.assertTrue(envelope.activity_ids)
+        action = envelope.action_sign_company_usb()
+        self.assertIn('signer_token=%s' % company_signer.access_token, action['url'])
+        # Token khác công ty bị chặn
+        with self.assertRaisesRegex(UserError, 'không khớp'):
+            self._usb_sign(envelope, demo_pki.issue(self.root, 'X', 'CONG TY X', 'MST:0100000000'))
+        self._usb_sign(envelope, self.dmag_token)
+        self.assertEqual(envelope.state, 'done')
+        self.assertTrue(envelope.verify_ok, envelope.verify_html)
+        self.assertFalse(envelope.activity_ids)
+
+    def test_visitor_rules(self):
+        envelope = self._envelope()
+        company_signer = envelope.signer_ids.filtered(lambda s: s.role == 'company')
+        self.assertEqual(envelope._signer_for_visitor(), envelope._customer_signers())
+        self._usb_sign(envelope, demo_pki.issue(self.root, 'NGUYEN VAN A', 'NHA KHOA TEST', 'MST:0109999999'))
+        # Link chung của khách không ký thay DMAG được
+        self.assertFalse(envelope._signer_for_visitor())
+        self.assertFalse(envelope._signer_for_visitor('sai-ma'))
+        self.assertEqual(envelope._signer_for_visitor(company_signer.access_token), company_signer)
+        self.assertEqual(envelope._portal_summary(company_signer.access_token)['signer_role'], 'company')
+        self.assertTrue(envelope._portal_summary()['waiting_company'])

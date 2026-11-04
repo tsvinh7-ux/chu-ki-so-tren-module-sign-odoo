@@ -11,4 +11,6 @@
               action="action_cks_provider"/>
     <menuitem id="menu_cks_trust_root" name="Root CA tin cậy" parent="menu_cks_config" sequence="20"
               action="action_cks_trust_root"/>
+    <menuitem id="menu_cks_sign_link" name="Kết nối module ký" parent="menu_cks_config" sequence="30"
+              action="action_cks_sign_link"/>
 </odoo>

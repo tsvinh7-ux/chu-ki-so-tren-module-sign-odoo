@@ -10,4 +10,14 @@
         <field name="numbercall">-1</field>
         <field name="active" eval="True"/>
     </record>
+    <record id="cron_cks_sign_pull" model="ir.cron">
+        <field name="name">Ký số: tạo hồ sơ từ yêu cầu ký đã hoàn tất</field>
+        <field name="model_id" ref="model_dmag_cks_sign_link"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_pull()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="numbercall">-1</field>
+        <field name="active" eval="True"/>
+    </record>
 </odoo>
