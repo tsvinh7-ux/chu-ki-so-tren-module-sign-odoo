@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_cks_sign_doc_user,cks.sign.doc.user,model_dmag_cks_sign_doc,base.group_user,1,0,0,0
+access_cks_sign_doc_manager,cks.sign.doc.manager,model_dmag_cks_sign_doc,dmag_esign_cks.group_cks_manager,1,1,1,1
+access_cks_sign_prep_manager,cks.sign.prep.manager,model_dmag_cks_sign_prep,dmag_esign_cks.group_cks_manager,1,1,1,1

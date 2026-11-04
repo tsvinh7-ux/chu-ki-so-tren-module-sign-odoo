@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sign_request_view_form" model="ir.ui.view">
+        <field name="name">sign.request.form.mock</field>
+        <field name="model">sign.request</field>
+        <field name="arch" type="xml">
+            <form>
+                <header><field name="state" widget="statusbar"/></header>
+                <sheet>
+                    <h1><field name="reference"/></h1>
+                    <group><field name="template_id"/><field name="completed_document"/></group>
+                    <field name="request_item_ids">
+                        <tree editable="bottom">
+                            <field name="mail_sent_order"/><field name="role_id"/><field name="partner_id"/>
+                            <field name="state"/><field name="access_token"/>
+                        </tree>
+                    </field>
+                </sheet>
+                <div class="oe_chatter"><field name="message_ids"/></div>
+            </form>
+        </field>
+    </record>
+    <record id="action_sign_request" model="ir.actions.act_window">
+        <field name="name">Yêu cầu ký (giả lập)</field>
+        <field name="res_model">sign.request</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+    <menuitem id="menu_sign_root" name="Sign (giả lập)" action="action_sign_request" sequence="44"/>
+</odoo>

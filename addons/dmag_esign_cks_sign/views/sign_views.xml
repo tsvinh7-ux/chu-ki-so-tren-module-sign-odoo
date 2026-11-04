@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sign_request_form_cks" model="ir.ui.view">
+        <field name="name">sign.request.form.cks</field>
+        <field name="model">sign.request</field>
+        <field name="inherit_id" ref="sign.sign_request_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/h1" position="after">
+                <div class="mb-2">
+                    <span class="badge text-bg-info" invisible="not dmag_cks_summary"><field name="dmag_cks_summary"/></span>
+                    <button name="action_dmag_cks_download" type="object" string="Tải bản đã ký số"
+                            class="btn btn-link" invisible="not completed_document or not dmag_cks_doc_id"/>
+                    <field name="dmag_cks_doc_id" invisible="1"/>
+                </div>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <field name="dmag_cks_verify_html" invisible="not dmag_cks_verify_html"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

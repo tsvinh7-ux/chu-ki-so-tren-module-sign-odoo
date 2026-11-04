@@ -34,6 +34,11 @@ from pyhanko.pdf_utils.text import TextBoxStyle
 from pyhanko.sign import fields, signers, timestamps
 from pyhanko.sign.signers.pdf_byterange import PreparedByteRangeDigest
 from pyhanko.sign.signers.pdf_signer import PdfTBSDocument
+from pyhanko.pdf_utils import generic
+from pyhanko.sign.diff_analysis import DEFAULT_DIFF_POLICY, ModificationLevel, StandardDiffPolicy
+from pyhanko.sign.diff_analysis.commons import compare_dicts
+from pyhanko.sign.diff_analysis.policy_api import SuspiciousModification
+from pyhanko.sign.diff_analysis.rules_api import QualifiedWhitelistRule, ReferenceUpdate
 from pyhanko.sign.validation import validate_pdf_signature
 from pyhanko.stamp import StaticStampStyle, TextStampStyle
 from pyhanko_certvalidator import ValidationContext
@@ -397,6 +402,234 @@ def load_pkcs12(data, password=None):
             [c.public_bytes(serialization.Encoding.DER) for c in (extra or [])])
 
 
+# --------------------------------------------------------------------------- ghi thêm sau chữ ký số
+OVERLAY_PREFIX = 'DMAG-CKS-'
+
+
+def _register_font():
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    font_path = find_font()
+    if not font_path:
+        return 'Helvetica', _ascii
+    if 'DMAGSans' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('DMAGSans', font_path))
+        bold_path = font_path.replace('DejaVuSans.ttf', 'DejaVuSans-Bold.ttf')
+        pdfmetrics.registerFont(TTFont('DMAGSans-Bold', bold_path if os.path.isfile(bold_path) else font_path))
+    return 'DMAGSans', (lambda text: text)
+
+
+def _render_overlay_pdf(overlay, width, height):
+    """Hình hiển thị của một ô: ảnh chữ ký (PNG/JPEG) hoặc chữ, vẽ vừa khung."""
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfgen import canvas
+
+    buf = io.BytesIO()
+    pdf = canvas.Canvas(buf, pagesize=(width, height))
+    if overlay.get('image'):
+        image = ImageReader(io.BytesIO(overlay['image']))
+        iw, ih = image.getSize()
+        scale = min(width / iw, height / ih) if iw and ih else 1
+        w, h = iw * scale, ih * scale
+        pdf.drawImage(image, (width - w) / 2, (height - h) / 2, w, h, mask='auto')
+    else:
+        font, fix = _register_font()
+        text = fix(str(overlay.get('text') or ''))
+        size = min(11.0, max(6.0, height * 0.6))
+        while size > 5 and pdfmetrics.stringWidth(text, font, size) > width - 2:
+            size -= 0.5
+        pdf.setFont(font, size)
+        pdf.drawString(1, (height - size) / 2 + size * 0.2, text)
+    pdf.showPage()
+    pdf.save()
+    return buf.getvalue()
+
+
+def add_overlays(pdf_bytes, overlays):
+    """Ghi thêm chữ ký vẽ / chữ của người ký thành chú thích (annotation) dạng Stamp.
+
+    Ghi theo kiểu incremental nên không làm hỏng chữ ký số đã có trong file.
+    Mỗi phần tử ``overlays``: ``{'page': số trang (0 = trang đầu), 'box': (x1, y1, x2, y2),
+    'text': str | 'image': bytes, 'name': mã duy nhất}``.
+    """
+    if not overlays:
+        return pdf_bytes
+    writer = IncrementalPdfFileWriter(io.BytesIO(pdf_bytes), strict=False)
+    pages = _page_refs(writer.root['/Pages'])
+    touched = {}
+    for index, overlay in enumerate(overlays):
+        page_ref = pages[overlay.get('page', 0)]
+        x1, y1, x2, y2 = overlay['box']
+        width, height = max(abs(x2 - x1), 1), max(abs(y2 - y1), 1)
+        stamp = PdfFileReader(io.BytesIO(_render_overlay_pdf(overlay, width, height)), strict=False)
+        xobj = writer.import_page_as_xobject(stamp, page_ix=0)
+        annot = generic.DictionaryObject({
+            generic.pdf_name('/Type'): generic.pdf_name('/Annot'),
+            generic.pdf_name('/Subtype'): generic.pdf_name('/Stamp'),
+            generic.pdf_name('/Rect'): generic.ArrayObject([generic.FloatObject(v) for v in (x1, y1, x2, y2)]),
+            generic.pdf_name('/F'): generic.NumberObject(4 | 128),  # Print + Locked
+            generic.pdf_name('/NM'): generic.TextStringObject(
+                OVERLAY_PREFIX + str(overlay.get('name') or index)),
+            generic.pdf_name('/Contents'): generic.TextStringObject(
+                str(overlay.get('text') or overlay.get('label') or '')),
+            generic.pdf_name('/P'): page_ref,
+            generic.pdf_name('/AP'): generic.DictionaryObject({generic.pdf_name('/N'): xobj}),
+        })
+        touched.setdefault(page_ref.idnum, (page_ref, []))[1].append(writer.add_object(annot))
+    for page_ref, refs in touched.values():
+        page = page_ref.get_object()
+        if '/Annots' in page:
+            raw = page.raw_get('/Annots')
+            annots = raw.get_object()
+            new_annots = generic.ArrayObject(list(annots) + refs)
+        else:
+            new_annots = generic.ArrayObject(refs)
+        # Luôn ghi lại /Annots trực tiếp trong trang: luật kiểm tra chỉ cần so trang cũ/mới.
+        page[generic.pdf_name('/Annots')] = new_annots
+        writer.update_container(page)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def page_sizes(pdf_bytes):
+    """Kích thước (rộng, cao) theo point của từng trang, có tính MediaBox kế thừa từ /Pages."""
+    reader = PdfFileReader(io.BytesIO(pdf_bytes), strict=False)
+    sizes = []
+
+    def walk(node, inherited):
+        box = node.get('/MediaBox', inherited)
+        if node.get('/Type') == '/Pages':
+            for kid in node.raw_get('/Kids').get_object():
+                walk(kid.get_object(), box)
+        else:
+            x1, y1, x2, y2 = [float(v) for v in box]
+            sizes.append((abs(x2 - x1), abs(y2 - y1)))
+
+    walk(reader.root['/Pages'], None)
+    return sizes
+
+
+def list_overlays(pdf_bytes):
+    """Tên (``/NM``, bỏ tiền tố) các lớp ghi thêm DMAG-CKS có trong file, theo thứ tự trang."""
+    reader = PdfFileReader(io.BytesIO(pdf_bytes), strict=False)
+    names = []
+    for page_ref in _page_refs(reader.root['/Pages']):
+        page = page_ref.get_object()
+        if '/Annots' not in page:
+            continue
+        for item in page.raw_get('/Annots').get_object():
+            obj = item.get_object()
+            if _is_overlay(obj):
+                names.append(str(obj['/NM'])[len(OVERLAY_PREFIX):])
+    return names
+
+
+def _page_refs(pages_node, as_reference=False):
+    """Danh sách trang theo thứ tự (IndirectObject, hoặc Reference để so sánh giữa các bản)."""
+    refs = []
+    for kid in pages_node.raw_get('/Kids').get_object():
+        node = kid.get_object()
+        if node.get('/Type') == '/Pages':
+            refs.extend(_page_refs(node, as_reference))
+        else:
+            refs.append(kid.reference if as_reference else kid)
+    return refs
+
+
+def _annot_refs(page):
+    try:
+        value = page.raw_get('/Annots')
+    except KeyError:
+        return set()
+    arr = value.get_object()
+    return {item.reference for item in arr if isinstance(item, generic.IndirectObject)}
+
+
+def _is_overlay(obj):
+    return obj.get('/Subtype') == '/Stamp' and str(obj.get('/NM', '')).startswith(OVERLAY_PREFIX)
+
+
+class DmagOverlayRule(QualifiedWhitelistRule):
+    """Luật kiểm tra: cho phép thêm chú thích Stamp do addon tạo (``/NM`` bắt đầu bằng DMAG-CKS-)
+    sau một chữ ký số, ở mức ANNOTATIONS. Đây là loại thay đổi Adobe cũng cho phép sau chữ ký
+    phê duyệt. Mọi thay đổi khác vẫn do bộ luật mặc định của pyHanko đánh giá.
+
+    pyHanko so từng bản sau với bản đã ký, nên phần "mới thêm" được tính so với bản ngay trước:
+    chú thích có từ các bản trước đã được kiểm ở lượt của bản đó.
+    """
+
+    def apply_qualified(self, old, new):
+        prev = new.reader.get_historical_resolver(new.revision - 1)
+        old_pages = _page_refs(old.root['/Pages'], as_reference=True)
+        new_pages = _page_refs(new.root['/Pages'], as_reference=True)
+        if old_pages != new_pages or _page_refs(prev.root['/Pages'], as_reference=True) != new_pages:
+            return
+        written = set(new.explicit_refs_in_revision())
+        for page_ref in new_pages:
+            if page_ref not in written:
+                continue
+            prev_page, new_page = prev.get_object(page_ref), new.get_object(page_ref)
+            prev_annots, new_annots = _annot_refs(prev_page), _annot_refs(new_page)
+            if prev_annots - new_annots:
+                raise SuspiciousModification('Chú thích bị xóa sau khi ký.')
+            added = new_annots - prev_annots
+            if not added or not all(_is_overlay(new.get_object(ref)) for ref in added):
+                continue
+            compare_dicts(prev_page, new_page, frozenset(['/Annots']))
+            compare_dicts(old.get_object(page_ref), new_page, frozenset(['/Annots']))
+            yield ModificationLevel.ANNOTATIONS, ReferenceUpdate(page_ref)
+            for ref in added:
+                yield ModificationLevel.ANNOTATIONS, ReferenceUpdate(ref)
+                for dep in new.collect_dependencies(new.get_object(ref), since_revision=new.revision):
+                    yield ModificationLevel.ANNOTATIONS, ReferenceUpdate(dep)
+
+
+def _patch_sigfield_annot_walk():
+    """Cho luật tạo ô chữ ký mới của pyHanko nhận biết chú thích DMAG-CKS đã ghi ở các bản trước.
+
+    Mặc định pyHanko từ chối mọi chú thích "lạ" xuất hiện trên trang khi thêm một ô chữ ký mới.
+    Bản vá chỉ bổ sung các chú thích Stamp mang tiền tố DMAG-CKS- vào danh sách được nhận biết
+    (pyHanko được ghim phiên bản 0.25.3 trong requirements).
+    """
+    from pyhanko.sign.diff_analysis.rules import form_field_rules as ffr
+
+    original = ffr._walk_page_tree_annots
+    if getattr(original, '_dmag_patched', False):
+        return
+
+    def _collect(pages_node, found):
+        for kid in pages_node.raw_get('/Kids').get_object():
+            node = kid.get_object()
+            if node.get('/Type') == '/Pages':
+                _collect(node, found)
+                continue
+            if '/Annots' not in node:
+                continue
+            for item in node.raw_get('/Annots').get_object():
+                if isinstance(item, generic.IndirectObject) and _is_overlay(item.get_object()):
+                    found[item.reference] = None
+
+    def walk(old_page_root, new_page_root, field_name_dict, old, valid_when_locked, refs_seen):
+        known = dict(field_name_dict)
+        _collect(new_page_root, known)
+        return original(old_page_root, new_page_root, known, old, valid_when_locked, refs_seen)
+
+    walk._dmag_patched = True
+    ffr._walk_page_tree_annots = walk
+
+
+_patch_sigfield_annot_walk()
+
+
+DIFF_POLICY = StandardDiffPolicy(
+    global_rules=list(DEFAULT_DIFF_POLICY.global_rules) + [DmagOverlayRule()],
+    form_rule=DEFAULT_DIFF_POLICY.form_rule,
+)
+
+
 # --------------------------------------------------------------------------- kiểm tra
 def verify_pdf(pdf_bytes, trust_roots=(), allow_fetching=False):
     """Kiểm tra toàn bộ chữ ký số trong PDF.
@@ -410,14 +643,17 @@ def verify_pdf(pdf_bytes, trust_roots=(), allow_fetching=False):
     results = []
     # pyHanko ghi traceback mỗi khi không dựng được chuỗi tin cậy; kết quả đã nằm
     # trong 'trusted' nên tạm tắt log này để không làm rối log Odoo.
-    noisy = logging.getLogger('pyhanko.sign.validation.generic_cms')
-    previous_level = noisy.level
-    noisy.setLevel(logging.CRITICAL)
+    noisy = [logging.getLogger(name) for name in ('pyhanko.sign.validation.generic_cms',
+                                                   'pyhanko.sign.diff_analysis.policies')]
+    previous_levels = [logger.level for logger in noisy]
+    for logger in noisy:
+        logger.setLevel(logging.CRITICAL)
     try:
         for embedded in reader.embedded_signatures:
             results.append(_verify_one(embedded, roots, allow_fetching))
     finally:
-        noisy.setLevel(previous_level)
+        for logger, level in zip(noisy, previous_levels):
+            logger.setLevel(level)
     return results
 
 
@@ -426,7 +662,7 @@ def _verify_one(embedded, roots, allow_fetching):
                            revocation_mode='soft-fail')
     row = {'field': embedded.field_name}
     try:
-        status = validate_pdf_signature(embedded, signer_validation_context=vc)
+        status = validate_pdf_signature(embedded, signer_validation_context=vc, diff_policy=DIFF_POLICY)
         timestamp = status.timestamp_validity.timestamp if status.timestamp_validity else None
         row.update({
             'intact': bool(status.intact),

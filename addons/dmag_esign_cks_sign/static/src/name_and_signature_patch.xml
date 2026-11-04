@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-inherit="web.NameAndSignature" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('o_web_sign_name_and_signature')]" position="attributes">
+            <attribute name="t-att-class">{'o_dmag_cks_required': cksRequired}</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('o_web_sign_name_and_signature')]/*[1]" position="before">
+            <div t-if="cksEnabled" class="alert alert-warning o_dmag_cks_notice small mb-2" role="note">
+                <t t-if="cksRequired">Vai trò của bạn phải ký bằng chữ ký số (USB token).</t>
+                <t t-else="">Nên ký bằng USB token (chữ ký số) để hợp đồng có giá trị như chữ ký tay và được công nhận khi làm thủ tục hành chính.</t>
+            </div>
+        </xpath>
+        <xpath expr="//div[hasclass('card-header')]//div[hasclass('row')]/*[1]" position="before">
+            <div t-if="cksEnabled" class="col-auto">
+                <a role="button" href="#" t-on-click.prevent="onClickCksUsb"
+                   t-attf-class="o_dmag_cks_usb_button me-2 btn btn-light {{ state.signMode === 'dmag_usb' ? 'active' : '' }}">USB token</a>
+            </div>
+        </xpath>
+        <xpath expr="//div[hasclass('o_web_sign_signature_container')]" position="before">
+            <div t-if="cksEnabled and state.signMode === 'dmag_usb'" class="o_dmag_cks_panel border-bottom p-2">
+                <t t-if="cks.agent === 'checking' or cks.agent === 'unknown'">
+                    <div class="text-muted small">Đang tìm phần mềm DMAG Ký số trên máy…</div>
+                </t>
+                <t t-elif="cks.agent === 'missing'">
+                    <div class="small mb-2">Máy tính cần phần mềm <strong>DMAG Ký số</strong> để ký bằng USB token (cài 1 lần):
+                        cắm USB token, <a t-att-href="cks.config.agentDownload" class="fw-bold">tải DMAG Ký số</a>, mở file vừa tải, rồi bấm nút dưới.</div>
+                    <button type="button" class="btn btn-sm btn-primary o_dmag_cks_retry" t-on-click="onClickCksRetry">Tôi đã cài xong, tìm chữ ký số</button>
+                </t>
+                <t t-elif="cks.agent === 'not_allowed'">
+                    <div class="small mb-2">Hãy chọn "Có" ở hộp thoại của DMAG Ký số trên máy tính để cho phép trang này, rồi thử lại.</div>
+                    <button type="button" class="btn btn-sm btn-primary o_dmag_cks_retry" t-on-click="onClickCksRetry">Thử lại</button>
+                </t>
+                <t t-elif="!cks.certs.length">
+                    <div class="small mb-2">Không thấy chữ ký số nào. Hãy cắm USB token, đợi vài giây rồi thử lại.</div>
+                    <button type="button" class="btn btn-sm btn-primary o_dmag_cks_retry" t-on-click="onClickCksRetry">Tìm lại</button>
+                </t>
+                <t t-else="">
+                    <div class="small text-muted mb-1">Chọn chữ ký số (khi bấm hoàn tất, máy tính sẽ hỏi mã PIN):</div>
+                    <t t-foreach="cks.certs" t-as="cert" t-key="cert.id">
+                        <label t-attf-class="o_dmag_cks_cert d-flex gap-2 align-items-start {{ cert.expired ? 'opacity-50' : '' }}">
+                            <input type="radio" name="dmag_cks_cert" t-att-checked="cks.cert and cks.cert.id === cert.id"
+                                   t-att-disabled="cert.expired" t-on-change="() => this.onSelectCksCert(cert)"/>
+                            <span><strong t-esc="cert.common_name"/><br/>
+                                <small class="text-muted"><t t-esc="cksIssuer(cert)"/> · hết hạn <t t-esc="cksExpiry(cert)"/><t t-if="cert.expired"> (đã hết hạn)</t></small></span>
+                        </label>
+                    </t>
+                </t>
+            </div>
+        </xpath>
+    </t>
+</templates>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="doc_sign" name="Trang ký (giả lập Odoo Sign)">
+        <t t-call="web.frontend_layout">
+            <t t-set="no_header" t-value="True"/>
+            <t t-set="no_footer" t-value="True"/>
+            <div class="o_sign_document_page container py-3">
+                <owl-component name="sign.signing_page" t-att-props="props_json"/>
+            </div>
+        </t>
+    </template>
+</odoo>

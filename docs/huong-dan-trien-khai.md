@@ -2,6 +2,50 @@
 
 > Gửi kèm cho Bizapps khi cài đặt. Phương án nghiệp vụ xem ở [phuong-an-chot-v2.md](phuong-an-chot-v2.md).
 
+## 0. Cách dùng chính: ký USB token ngay trong Odoo Sign (module `dmag_esign_cks_sign`)
+
+Người ký mở link ký của Odoo Sign như bình thường và bấm vào ô chữ ký. Hộp chọn chữ ký có thêm:
+- **lời nhắc màu vàng:** nên ký bằng USB token để hợp đồng được công nhận khi làm thủ tục hành chính;
+- **tab "USB token"**, mở sẵn. Tab này liệt kê chứng thư trên máy qua phần mềm DMAG Ký số.
+
+Người ký chọn chứng thư rồi bấm "Ký và hoàn tất". Máy tính hỏi PIN, Odoo ghi chữ ký số vào hợp đồng ngay lúc đó. Các cách vẽ, gõ tên và tải ảnh vẫn dùng được.
+
+| Hộp chọn chữ ký có tab USB token | Ô ký sau khi chọn | Quản trị: Ký số 2/2 bên, kiểm tra xanh |
+|---|---|---|
+| ![](images/21-sign-hop-ky-usb-token.png) | ![](images/22-sign-da-chon-chu-ky.png) | ![](images/25-sign-quan-tri.png) |
+
+| Bản hoàn tất: 2 chữ ký số + họ tên trong ô của mẫu Sign |
+|---|
+| ![](images/26-sign-ban-hoan-tat.png) |
+
+**Cách hoạt động:**
+- **Thứ tự ký theo Odoo Sign.** Ai ký trước cũng được, hoặc ký lần lượt nếu mẫu có cài thứ tự.
+- **Chữ ký số nối tiếp nhau** trong file theo đúng thứ tự mọi người ký thực tế.
+- **Hai người ký cùng lúc:** người đến sau được tự ký lại trên bản mới nhất, phải nhập PIN thêm một lần.
+- **Người ký thường** (vẽ, gõ, tải ảnh) sau khi đã có chữ ký số: phần của họ được ghi thêm thành lớp chú thích có tên `DMAG-CKS-…`, không làm hỏng chữ ký số trước. Adobe ghi nhận đây là thay đổi được phép.
+- **Bộ kiểm tra của addon** chấp nhận đúng loại chú thích này. Chú thích lạ hoặc sửa nội dung trang sau khi ký vẫn bị báo hỏng (có test).
+- **Khi mọi bên ký xong:** file hoàn tất là bản đã chốt, Sign không vẽ lại. Odoo tự kiểm tra chữ ký và hiện "Ký số: x/y bên" trên yêu cầu ký.
+- **Chặn sai người ký:**
+  - Chứng thư có MST phải khớp MST của khách.
+  - Nhân viên nội bộ phải dùng token mang MST của chính công ty.
+  - Chứng thư cá nhân phải khớp số CCCD trong hồ sơ, nếu hồ sơ có số CCCD.
+- **Vai trò "Bắt buộc ký số":** đánh dấu trên vai trò ký. Khi đó hộp ký chỉ còn tab USB token, và máy chủ từ chối nếu người ở vai trò đó ký bằng cách khác.
+
+**Những chỗ phụ thuộc mã nguồn Sign của Bizapps** (em viết theo Odoo Sign 17 và đã test trên bản giả lập trong `e2e/fake_addons/sign`):
+
+| Chỗ gắn | Theo Odoo 17 | Cần kiểm tra trên bản Bizapps |
+|---|---|---|
+| `depends` của module | `sign` | Tên kỹ thuật module Sign |
+| Model và trường | `sign.request`, `sign.request.item` (`_sign`, `access_token`, `role_id`, `mail_sent_order`), `sign.item` (`page`, `posX`, `posY`, `width`, `height`, `type_id.item_type`), `sign.template.attachment_id` | Tên trường |
+| Tạo file hoàn tất | `sign.request._generate_completed_document()` | Tên hàm |
+| Trang ký | template `sign.doc_sign`, biến `current_request_item` | Tên template và biến |
+| Hộp chọn chữ ký | component `NameAndSignature` của web (Community) | Hộp ký của Bizapps có dùng component này không |
+| Nút hoàn tất | `static/src/sign_page_patch.js` | Lớp và hàm xử lý nút "Validate & Send" |
+
+Ước tính gắn vào bản Bizapps: **3–5 ngày** sau khi có mã nguồn.
+
+---
+
 ## 1. Addon làm gì
 
 Addon chỉ **gắn thêm chữ ký số** vào tài liệu, **không sửa** module ký của Bizapps.
@@ -45,7 +89,9 @@ Sau khi các bên ký xong:
 2. Chép thư mục `addons/dmag_esign_cks` vào addons path, cập nhật danh sách ứng dụng, cài **"DMAG – Chữ ký số cho hợp đồng"**.
    Addon chỉ phụ thuộc `mail` và `portal`.
 3. Chạy test: `odoo -d <db_test> -i dmag_esign_cks --test-enable --test-tags=/dmag_esign_cks --stop-after-init`
-   (kết quả lúc phát triển: **17/17 test đạt**, cộng 4 test phần nối module ký chạy với module Sign giả lập trong `e2e/fake_addons`).
+   (kết quả lúc phát triển: **30/30 test đạt**, gồm 17 test của addon, 9 test ký số trong Sign và 4 test phần nối "ký xong rồi ký số",
+   chạy cùng module Sign giả lập trong `e2e/fake_addons/sign`).
+   Lệnh test kèm Sign giả lập: `odoo --addons-path=addons,e2e/fake_addons -i dmag_esign_cks,sign,dmag_esign_cks_sign --test-enable --test-tags=/dmag_esign_cks,/dmag_esign_cks_sign`.
 
 Chạy thử nhanh bằng Docker: `docker compose up -d` rồi mở http://localhost:8069 (admin/admin, DB có dữ liệu demo).
 
@@ -79,7 +125,10 @@ Chạy thử nhanh bằng Docker: `docker compose up -d` rồi mở http://local
 - Nếu Odoo chạy ở tên miền khác (ví dụ `erp.dmagroup.vn`), build lại với `ORIGINS=https://erp.dmagroup.vn ./build.sh`, hoặc để khách bấm "Có" lần đầu.
 - **Trước khi phát hành:** nên ký số file .exe (Authenticode) để Windows SmartScreen và phần mềm diệt virus không cảnh báo.
 
-## 5. Nối với module ký (bản Sign của Bizapps)
+## 5. Cách phụ: ký xong trên Sign rồi mới ký số (không cần mã nguồn Sign)
+
+> Chỉ dùng nếu chưa gắn được `dmag_esign_cks_sign`. Không bật cả hai cách cho cùng một yêu cầu ký.
+
 
 **Không cần sửa module ký và không cần viết module cầu nối.** Vào **Ký số › Cấu hình › Kết nối module ký**, mở bản ghi
 "Module Sign (kiểu Odoo Sign)" rồi bấm **Kích hoạt / kiểm tra**.
@@ -103,7 +152,8 @@ nhận file đã ký và chuyển trạng thái.
 |---|---|
 | Ký PAdES nhiều chữ ký nối tiếp (RSA, ECDSA), chữ ký sai bị từ chối, sửa 1 byte thì mọi chữ ký báo hỏng | ✅ Test tự động |
 | Luồng Odoo: khách ký USB, **DMAG ký USB (sai MST bị chặn, link của khách không ký thay DMAG được)**, cá nhân ký vào ô tổ chức bị chặn, ký từ xa (giả lập) có chờ xác nhận, DMAG tự ký bằng .p12 | ✅ 17/17 test Odoo |
-| Nối module ký kiểu Odoo Sign: tự tạo hồ sơ, không trùng, không nhận người nội bộ làm khách, file đã ký quay về yêu cầu ký | ✅ 4 test với module Sign giả lập. ⏳ Cần chạy trên bản Sign thật của Bizapps |
+| **Ký USB token trong Odoo Sign**: khách ký số rồi DMAG vẽ, ngược thứ tự, vẽ trước rồi ký số, hai người cùng lúc, sai MST, đúng lượt, vai trò bắt buộc, không ký số giữ nguyên Sign | ✅ 9 test + chạy trên trình duyệt (`e2e/sign_flow.js`). ⏳ Cần gắn và chạy trên bản Sign thật của Bizapps |
+| Nối module ký kiểu Odoo Sign (cách phụ): tự tạo hồ sơ, không trùng, không nhận người nội bộ làm khách | ✅ 4 test với module Sign giả lập |
 | Trình duyệt thật: khách ký USB, DMAG ký USB, ký từ xa giả lập (`e2e/full_demo.js`) | ✅ Playwright + Chromium |
 | PDF kiểm tra bằng công cụ độc lập (poppler `pdfsig`) | ✅ "Signature is Valid" |
 | **Phần mềm DMAG Ký số trên Windows với USB token thật** | ⏳ Code đã biên dịch, **chưa chạy trên máy Windows**. Danh sách kiểm thử ở `agent/README.md` |

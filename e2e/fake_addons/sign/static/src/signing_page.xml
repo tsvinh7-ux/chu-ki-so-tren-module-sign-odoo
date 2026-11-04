@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="sign.SignatureModal">
+        <div class="o_sign_mock_modal_backdrop">
+            <div class="o_sign_mock_modal card shadow">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Chọn chữ ký của bạn</strong>
+                    <button type="button" class="btn-close" t-on-click="props.onClose" aria-label="Đóng"/>
+                </div>
+                <div class="card-body">
+                    <NameAndSignature signature="signature" signatureType="props.signatureType"/>
+                    <div class="small text-muted mt-2">Khi bấm "Dùng chữ ký này", bạn đồng ý chữ ký được chọn có giá trị như chữ ký của bạn trên tài liệu.</div>
+                </div>
+                <div class="card-footer d-flex gap-2">
+                    <button type="button" class="btn btn-primary o_sign_mock_adopt" t-att-disabled="signature.isSignatureEmpty" t-on-click="adopt">Dùng chữ ký này</button>
+                    <button type="button" class="btn btn-secondary" t-on-click="props.onClose">Hủy</button>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="sign.SigningPage">
+        <div class="o_sign_mock">
+            <div class="o_sign_mock_bar d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                <div>
+                    <div class="h5 mb-0" t-esc="props.reference"/>
+                    <small class="text-muted">Người ký: <t t-esc="props.signerName"/> · Vai trò: <t t-esc="props.role"/></small>
+                </div>
+                <div>
+                    <span t-if="state.requestState === 'signed'" class="badge text-bg-success">Mọi bên đã ký</span>
+                    <span t-elif="state.done" class="badge text-bg-success">Bạn đã ký xong</span>
+                    <span t-elif="!props.isTurn" class="badge text-bg-secondary">Chưa đến lượt bạn</span>
+                    <button t-else="" type="button" class="btn btn-primary o_sign_mock_submit" t-att-disabled="state.busy" t-on-click="submit">Ký và hoàn tất</button>
+                </div>
+            </div>
+            <div t-if="state.error" class="alert alert-danger o_sign_mock_error" t-esc="state.error"/>
+            <div t-ref="pages" class="o_sign_mock_pages">
+                <div t-if="!state.pages.length" class="text-muted">Đang tải tài liệu…</div>
+                <t t-foreach="state.pages" t-as="page" t-key="page.number">
+                    <div class="o_sign_mock_page">
+                        <img t-att-src="page.src" alt="Trang tài liệu"/>
+                        <t t-foreach="itemsOnPage(page.number)" t-as="item" t-key="item.id">
+                            <div t-attf-class="o_sign_mock_item o_sign_mock_item_{{item.type}} {{item.mine and canSign ? 'o_mine' : ''}} {{state.values[item.id] ? 'o_filled' : ''}}"
+                                 t-att-style="itemStyle(item)" t-att-data-item-id="item.id" t-on-click="() => this.openItem(item)">
+                                <t t-if="item.type === 'text'">
+                                    <input t-if="item.mine and canSign" type="text" class="o_sign_mock_text" t-att-placeholder="item.name"
+                                           t-att-value="state.values[item.id] or ''" t-on-input="(ev) => this.onText(item, ev)"/>
+                                    <span t-else="" t-esc="state.values[item.id] or ''"/>
+                                </t>
+                                <img t-elif="state.values[item.id]" t-att-src="state.values[item.id]" alt="Chữ ký"/>
+                                <span t-else="" class="o_sign_mock_label"><t t-esc="item.mine ? 'Bấm để ký' : 'Dành cho ' + item.role"/></span>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+            </div>
+            <SignatureModal t-if="state.modalItem" defaultName="props.signerName" signatureType="state.modalItem.type === 'initial' ? 'initial' : 'signature'"
+                            onAdopt.bind="onAdopt" onClose="() => this.state.modalItem = null"/>
+        </div>
+    </t>
+</templates>

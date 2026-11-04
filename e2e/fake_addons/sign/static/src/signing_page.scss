@@ -1,0 +1,13 @@
+.o_sign_mock_pages { display: grid; gap: 16px; justify-items: center; }
+.o_sign_mock_page { position: relative; box-shadow: 0 1px 6px rgba(0, 0, 0, .15); max-width: 100%;
+    img { display: block; max-width: 100%; height: auto; } }
+.o_sign_mock_item { position: absolute; border: 1px dashed rgba(0, 0, 0, .25); display: flex; align-items: center;
+    justify-content: center; font-size: 12px; color: #666; overflow: hidden;
+    img { max-width: 100%; max-height: 100%; }
+    &.o_mine { border: 2px solid #f0ad4e; background: rgba(255, 236, 179, .55); cursor: pointer; color: #8a5a00; }
+    &.o_filled { background: transparent; }
+}
+.o_sign_mock_text { width: 100%; height: 100%; border: 0; background: transparent; font-size: 12px; padding: 0 4px; }
+.o_sign_mock_modal_backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 1050; display: flex;
+    align-items: flex-start; justify-content: center; padding: 40px 12px; overflow-y: auto; }
+.o_sign_mock_modal { width: 100%; max-width: 620px; }

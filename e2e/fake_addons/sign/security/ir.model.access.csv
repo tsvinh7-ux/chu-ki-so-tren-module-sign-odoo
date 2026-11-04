@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sign_item_role,sign.item.role,model_sign_item_role,base.group_user,1,1,1,1
+access_sign_item_type,sign.item.type,model_sign_item_type,base.group_user,1,1,1,1
+access_sign_template,sign.template,model_sign_template,base.group_user,1,1,1,1
+access_sign_item,sign.item,model_sign_item,base.group_user,1,1,1,1
+access_sign_request,sign.request,model_sign_request,base.group_user,1,1,1,1
+access_sign_request_item,sign.request.item,model_sign_request_item,base.group_user,1,1,1,1
+access_sign_request_item_value,sign.request.item.value,model_sign_request_item_value,base.group_user,1,1,1,1

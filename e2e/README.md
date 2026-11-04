@@ -21,5 +21,17 @@ Kịch bản đã chạy khi phát triển (Odoo 17 trong Docker, Chromium headl
    ```
    `urls.json` là dòng `E2E_JSON=...` ở bước 2.
 
-`fake_addons/dmag_fake_sign`: module **Sign giả lập** (model `sign.request` như Odoo Sign), chỉ để test phần
-"Kết nối module ký". Không cài lên hệ thống thật.
+## Ký USB token ngay trong Odoo Sign (`sign_flow.js`)
+
+`fake_addons/sign` là module **Sign giả lập** theo cấu trúc Odoo 17: cùng tên model và trường, có trang ký vẽ PDF bằng pdf.js, hộp chọn chữ ký dùng `NameAndSignature` của web. Chỉ để phát triển và test. **Không cài lên hệ thống thật.**
+
+```bash
+odoo --addons-path=addons,e2e/fake_addons -d sign_demo -i dmag_esign_cks,sign,dmag_esign_cks_sign   # DB có dữ liệu demo
+odoo shell -d sign_demo < e2e/sign_setup.py      # tạo mẫu ký, yêu cầu ký, 2 chứng thư giả lập → in E2E_JSON
+node e2e/sign_flow.js sign_urls.json <thư mục PEM> agent/dist/dmag-kyso-linux-amd64 shots/ http://localhost:8069
+```
+
+Script làm lần lượt:
+1. Khách mở link ký, bấm ô chữ ký, chọn tab USB token, chọn chứng thư, điền họ tên, bấm "Ký và hoàn tất".
+2. DMAG làm tương tự với token công ty.
+3. Mở lại trang để xem bản hoàn tất có 2 chữ ký số.
