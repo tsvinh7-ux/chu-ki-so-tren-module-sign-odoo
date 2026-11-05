@@ -43,6 +43,9 @@ class DmagCksProvider(models.Model):
     client_id = fields.Char('Client ID / SP ID', groups=ADMIN)
     client_secret = fields.Char('Client secret / SP password', groups=ADMIN)
     profile_id = fields.Char('Profile / Service ID')
+    async_code = fields.Integer(
+        'Mã async khi ký (MySign)', default=2,
+        help='Viettel MySign: 2 = gửi yêu cầu rồi hỏi trạng thái (mặc định). Đổi nếu Viettel hướng dẫn khác.')
     timeout = fields.Integer('Thời gian chờ HTTP (giây)', default=30)
     paths_json = fields.Text(
         'Endpoint tùy chỉnh (JSON)',
@@ -85,7 +88,7 @@ class DmagCksProvider(models.Model):
             'base_url': provider.base_url, 'client_id': provider.client_id,
             'client_secret': provider.client_secret, 'profile_id': provider.profile_id,
             'timeout': provider.timeout, 'paths': json.loads(provider.paths_json or '{}'),
-            'demo_delay': provider.demo_delay,
+            'demo_delay': provider.demo_delay, 'async_code': provider.async_code,
         }
         if provider.provider_type == 'demo_cloud':
             root = provider.demo_root_id

@@ -3,3 +3,16 @@
 }
 .o_dmag_cks_cert { padding: 6px 8px; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 6px; cursor: pointer; }
 .o_dmag_cks_notice { line-height: 1.4; }
+#dmag_cks_overlay {
+    position: fixed; inset: 0; z-index: 2000; background: rgba(15, 23, 42, .45);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.dmag_cks_overlay_box {
+    background: #fff; color: #1b2433; border-radius: 10px; padding: 18px 20px; max-width: 420px;
+    display: flex; gap: 12px; align-items: center; box-shadow: 0 8px 30px rgba(0, 0, 0, .25);
+}
+.dmag_cks_spinner {
+    flex: none; width: 22px; height: 22px; border: 3px solid #cfe9df; border-top-color: #0b6e4f;
+    border-radius: 50%; animation: dmag-cks-spin 1s linear infinite;
+}
+@keyframes dmag-cks-spin { to { transform: rotate(360deg); } }

@@ -58,9 +58,9 @@ def _b64(value):
 
 STATUS_WORDS = {
     'signed': {'1', 'SUCCESS', 'SIGNED', 'COMPLETED', 'DONE', 'APPROVED', 'OK'},
-    'rejected': {'REJECT', 'REJECTED', 'DENIED', 'CANCEL', 'CANCELED', 'CANCELLED', 'REFUSED', '4001'},
-    'expired': {'EXPIRED', 'TIMEOUT', 'TIME_OUT', '4002'},
-    'waiting': {'0', 'PENDING', 'WAITING', 'PROCESSING', 'IN_PROGRESS', 'CREATED', 'SENT', '4000'},
+    'rejected': {'REJECT', 'REJECTED', 'DENIED', 'CANCEL', 'CANCELED', 'CANCELLED', 'REFUSED'},
+    'expired': {'EXPIRED', 'TIMEOUT', 'TIME_OUT'},
+    'waiting': {'0', 'PENDING', 'WAITING', 'PROCESSING', 'IN_PROGRESS', 'CREATED', 'SENT'},
 }
 
 
@@ -87,6 +87,9 @@ class BaseAdapter:
     def get_status(self, user_id, credential_id, transaction_id):
         raise NotImplementedError
 
+    def _error_message(self, code, detail=None):
+        return 'Nhà cung cấp báo lỗi %s%s' % (code, (': %s' % detail) if detail else '')
+
     # ----------------------------------------------------------------- HTTP chung
     def _post(self, path, payload, headers=None):
         if requests is None:
@@ -102,8 +105,14 @@ class BaseAdapter:
         except requests.RequestException as exc:
             raise ProviderError('Không kết nối được %s: %s' % (url, exc)) from exc
         if resp.status_code >= 400:
-            raise ProviderError('Nhà cung cấp trả lỗi HTTP %s tại %s: %s'
-                                % (resp.status_code, path, resp.text[:300]))
+            try:
+                body = resp.json()
+            except ValueError:
+                body = None
+            code = _pick(body, 'error', 'error_code', 'errorCode', 'status_code') if isinstance(body, dict) else None
+            if code not in (None, ''):
+                raise ProviderError(self._error_message(code, _pick(body, 'error_description', 'message', 'msg')))
+            raise ProviderError('Nhà cung cấp trả lỗi HTTP %s tại %s.' % (resp.status_code, path))
         try:
             return resp.json()
         except ValueError as exc:
@@ -255,12 +264,32 @@ class VnptSmartCAAdapter(BaseAdapter):
 
 
 # ============================================================================ Viettel MySign
-class ViettelMySignAdapter(BaseAdapter):
-    """Viettel MySign / Viettel-CA Remote Signing.
+def ascii_label(text, limit=72):
+    """Nhãn hiển thị trên app MySign: bỏ dấu, chỉ giữ chữ/số/khoảng trắng/_-, rồi base64 (< 100 ký tự)."""
+    import re
+    import unicodedata
 
-    Kế thừa từ module ``dmag_esign_mysign`` (repo ERP-module-nha-khoa). Luồng kiểu
-    CSC: login → certificates/info → signHash (async, đẩy thông báo lên app MySign)
-    → requests/status. **CẦN ĐỐI CHIẾU** endpoint với Viettel-CA.
+    text = (text or '').replace('Đ', 'D').replace('đ', 'd')
+    text = ''.join(c for c in unicodedata.normalize('NFKD', text) if not unicodedata.combining(c))
+    text = re.sub(r'[^A-Za-z0-9_\- ]+', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()[:limit].strip() or 'Document'
+    return base64.b64encode(text.encode()).decode()
+
+
+class ViettelMySignAdapter(BaseAdapter):
+    """Viettel MySign: ký số từ xa, người ký xác nhận trên app MySign.
+
+    Theo "Tài liệu tích hợp dịch vụ MySign API" của Viettel-CA (v1.8), đối chiếu với SDK cộng đồng
+    ViettelConnect. **Chưa kiểm chứng với tài khoản thật**: mọi đường dẫn và mã ``async`` cấu hình được.
+
+    * ``POST {base}/vtss/service/ras/v1/login``: client_id, client_secret, profile_id, user_id → access_token
+    * ``POST {base}/vtss/service/certificates/info``: danh sách {credential_id, key{status}, cert{certificates[],
+      SerialNumber, subjectDN, issuerDN, validFrom, validTo}}
+    * ``POST {base}/vtss/service/signHash``: credentialID, client_id, client_secret, numSignatures, description,
+      documents[{document_id, document_name}], hash[] (base64), hashAlgo, signAlgo, async
+      → signatures[] (base64 PKCS#1 v1.5) hoặc transactionId
+    * ``POST {base}/vtss/service/requests/status``: transactionId → status (1 xong, 4001 hết hạn, 4002 từ chối),
+      signatures[]
     """
 
     PATHS = {
@@ -271,6 +300,10 @@ class ViettelMySignAdapter(BaseAdapter):
     }
     OID_SHA256 = '2.16.840.1.101.3.4.2.1'
     OID_RSA = '1.2.840.113549.1.1.1'
+    SIGNED = {'1'}
+    EXPIRED = {'4001'}
+    REJECTED = {'4002'}
+    FAILED = {'4004', '4005', '4006', '4008', '13003', '13004', '50000'}
 
     def __init__(self, config):
         super().__init__(config)
@@ -279,65 +312,99 @@ class ViettelMySignAdapter(BaseAdapter):
     def _path(self, key):
         return (self.config.get('paths') or {}).get(key) or self.PATHS[key]
 
+    def _creds(self, user_id):
+        if not self.config.get('client_id') or not self.config.get('client_secret'):
+            raise ProviderError('Viettel MySign chưa cấu hình Client ID / Client secret (tài khoản đối tác tích hợp).')
+        return {'client_id': self.config['client_id'], 'client_secret': self.config['client_secret'],
+                'profile_id': self.config.get('profile_id') or '', 'user_id': user_id}
+
+    def _error_message(self, code, detail=None):
+        known = {
+            '58061': 'Người ký chưa xác nhận trên app MySign trong thời gian cho phép',
+            '58083': 'Viettel ký thất bại',
+        }
+        return 'MySign báo lỗi %s: %s' % (code, known.get(str(code), detail or 'xem mã lỗi trong tài liệu Viettel'))
+
     def _check(self, data):
-        code = _pick(data, 'error', 'errorCode', 'error_code')
-        if code not in (None, 0, '0', 'SUCCESS', False):
-            raise ProviderError('MySign báo lỗi %s: %s' % (
-                code, _pick(data, 'error_description', 'message', 'errorMessage', 'msg') or ''))
+        if isinstance(data, dict):
+            code = _pick(data, 'error', 'error_code', 'errorCode')
+            if code not in (None, 0, '0', '00', 'SUCCESS', False):
+                raise ProviderError(self._error_message(code, _pick(data, 'error_description', 'message')))
         return data
 
-    def _token(self, user_id):
+    def _auth(self, user_id):
         if user_id not in self._tokens:
-            data = self._check(self._post(self._path('token'), {
-                'client_id': self.config.get('client_id'), 'client_secret': self.config.get('client_secret'),
-                'user_id': user_id, 'profile_id': self.config.get('profile_id')}))
-            token = _pick(data, 'access_token', 'accessToken', 'token')
+            data = self._check(self._post(self._path('token'), self._creds(user_id)))
+            token = _pick(data, 'access_token', 'accessToken')
             if not token:
-                raise ProviderError('MySign không trả access_token: kiểm tra client_id / secret / tài khoản.')
+                raise ProviderError('MySign không trả access_token: kiểm tra client_id / secret / profile / tài khoản.')
             self._tokens[user_id] = token
         return {'Authorization': 'Bearer %s' % self._tokens[user_id]}
 
+    def _certificates(self, user_id):
+        body = dict(self._creds(user_id), certificates='chain', certInfo=True, authInfo=True)
+        data = self._check(self._post(self._path('certificate'), body, headers=self._auth(user_id)))
+        items = data if isinstance(data, list) else (_pick(data, 'credentials', 'certificates', 'data') or [])
+        return [items] if isinstance(items, dict) else items
+
     def get_certificate(self, user_id):
-        data = self._check(self._post(self._path('certificate'), {
-            'client_id': self.config.get('client_id'), 'client_secret': self.config.get('client_secret'),
-            'profile_id': self.config.get('profile_id'), 'user_id': user_id,
-            'certificates': 'chain', 'certInfo': True, 'authInfo': True}, headers=self._token(user_id)))
-        items = data if isinstance(data, list) else (
-            _pick(data, 'credentials', 'certificates', 'items') or [])
-        if isinstance(items, dict):
-            items = [items]
-        for item in items:
-            cert = item.get('cert') if isinstance(item.get('cert'), dict) else item
-            chain = cert.get('certificates') or item.get('certificates') or []
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+        usable = []
+        for item in self._certificates(user_id):
+            cert = item.get('cert') or {}
+            chain = cert.get('certificates') or []
             if isinstance(chain, str):
                 chain = [chain]
-            if chain:
-                return {'cert': _b64(chain[0]), 'chain': [_b64(c) for c in chain[1:]],
-                        'credential_id': item.get('credential_id') or item.get('credentialID') or ''}
-        raise ProviderError('Tài khoản MySign %s chưa có chứng thư số.' % user_id)
+            if not chain or not item.get('credential_id'):
+                continue
+            key_status = str((item.get('key') or {}).get('status') or 'ENABLED').upper()
+            valid_to = ''.join(ch for ch in str(cert.get('validTo') or '') if ch.isdigit())[:14]
+            if key_status != 'ENABLED' or (valid_to and valid_to < now):
+                continue
+            usable.append({'cert': _b64(chain[0]), 'chain': [_b64(c) for c in chain[1:]],
+                           'credential_id': item['credential_id']})
+        if not usable:
+            raise ProviderError('Tài khoản MySign %s không có chứng thư số còn hiệu lực.' % user_id)
+        return usable[0]
 
     def _parse(self, data, transaction_id=None):
-        signatures = _pick(data, 'signatures', 'signature')
+        signatures = _pick(data, 'signatures')
         if isinstance(signatures, str):
             signatures = [signatures]
-        tran_id = _pick(data, 'transactionId', 'transaction_id', 'tranId', 'sad') or transaction_id
+        tran_id = _pick(data, 'transactionId', 'transaction_id') or transaction_id
         if signatures:
             return {'state': 'signed', 'signature': _b64(signatures[0]), 'transaction_id': tran_id}
-        return {'state': map_status(_pick(data, 'status', 'transactionStatus', 'state')),
-                'signature': None, 'transaction_id': tran_id, 'message': _pick(data, 'message', 'msg')}
+        raw = str(_pick(data, 'status') or '').strip()
+        if raw in self.EXPIRED:
+            state = 'expired'
+        elif raw in self.REJECTED:
+            state = 'rejected'
+        elif raw in self.FAILED:
+            state = 'error'
+        else:
+            state = 'waiting'  # 4000, 4003, 4007, 6000, rỗng: còn chờ người ký
+        return {'state': state, 'signature': None, 'transaction_id': tran_id,
+                'message': _pick(data, 'error_description') or ''}
 
     def sign_hash(self, user_id, credential_id, digest, doc_id, doc_name):
-        data = self._check(self._post(self._path('sign'), {
-            'credentialID': credential_id, 'numSignatures': 1, 'description': 'Ký hợp đồng %s' % doc_name,
-            'documents': [{'document_id': doc_id, 'document_name': doc_name}],
-            'hash': [base64.b64encode(digest).decode()], 'hashAlgo': self.OID_SHA256,
-            'signAlgo': self.OID_RSA, 'async': 1}, headers=self._token(user_id)))
-        return self._parse(data)
+        creds = self._creds(user_id)
+        body = {
+            'credentialID': credential_id, 'client_id': creds['client_id'], 'client_secret': creds['client_secret'],
+            'numSignatures': 1, 'description': ascii_label('DMAG ky %s' % doc_name),
+            'documents': [{'document_id': 1, 'document_name': ascii_label(doc_name)}],
+            'hash': [base64.b64encode(digest).decode()], 'hashAlgo': self.OID_SHA256, 'signAlgo': self.OID_RSA,
+            'async': int(self.config.get('async_code') or 2),
+        }
+        result = self._parse(self._check(self._post(self._path('sign'), body, headers=self._auth(user_id))))
+        if result['state'] != 'signed' and not result['transaction_id']:
+            raise ProviderError('MySign không trả chữ ký hoặc mã giao dịch.')
+        return result
 
     def get_status(self, user_id, credential_id, transaction_id):
-        data = self._check(self._post(self._path('status'), {
-            'transactionId': transaction_id, 'transaction_id': transaction_id},
-            headers=self._token(user_id)))
+        data = self._check(self._post(self._path('status'), {'transactionId': transaction_id},
+                                      headers=self._auth(user_id)))
         return self._parse(data, transaction_id)
 
 

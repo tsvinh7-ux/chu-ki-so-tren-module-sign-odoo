@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dmag_sign_probe_form" model="ir.ui.view">
+        <field name="name">dmag.sign.probe.form</field>
+        <field name="model">dmag.sign.probe</field>
+        <field name="arch" type="xml">
+            <form string="Kiểm tra tương thích module Sign">
+                <header>
+                    <button name="action_run" type="object" string="Chạy kiểm tra" class="btn-primary"/>
+                    <button name="action_download" type="object" string="Tải báo cáo (gửi cho DMAG)" invisible="not report_json"/>
+                </header>
+                <sheet>
+                    <h1>Kiểm tra tương thích module Sign</h1>
+                    <p class="text-muted">Chỉ đọc thông tin cấu trúc (tên module, model, trường, hàm, đường dẫn) mà quản trị
+                        viên vốn xem được trong Odoo. Không đọc mã nguồn, không sửa dữ liệu. Gỡ module này sau khi kiểm tra xong.</p>
+                    <h3><field name="summary" readonly="1"/></h3>
+                    <field name="report_html" nolabel="1"/>
+                    <field name="report_json" invisible="1"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_dmag_sign_probe" model="ir.actions.act_window">
+        <field name="name">Kiểm tra module Sign (DMAG)</field>
+        <field name="res_model">dmag.sign.probe</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+    </record>
+    <menuitem id="menu_dmag_sign_probe" name="Kiểm tra Sign (DMAG)" action="action_dmag_sign_probe"
+              parent="base.menu_administration" sequence="99" groups="base.group_system"/>
+</odoo>

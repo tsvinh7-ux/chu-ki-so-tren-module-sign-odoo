@@ -32,6 +32,13 @@ node e2e/sign_flow.js sign_urls.json <thư mục PEM> agent/dist/dmag-kyso-linux
 ```
 
 Script làm lần lượt:
-1. Khách mở link ký, bấm ô chữ ký, chọn tab USB token, chọn chứng thư, điền họ tên, bấm "Ký và hoàn tất".
-2. DMAG làm tương tự với token công ty.
+1. Khách mở link ký, chọn tab USB token, chọn chứng thư, điền họ tên, bấm "Ký và hoàn tất".
+2. DMAG chọn tab App ký số (Viettel MySign), bấm Kiểm tra, rồi hoàn tất và chờ "xác nhận trên app".
 3. Mở lại trang để xem bản hoàn tất có 2 chữ ký số.
+
+Máy chủ MySign giả lập (cùng giao thức MySign v1.8) chạy cạnh Odoo. `sign_setup.py` xuất Root giả lập ra `/tmp/e2e`:
+
+```bash
+python3 -I addons/dmag_esign_cks/tests/fake_mysign.py --root-cert /tmp/e2e/root.der --root-key /tmp/e2e/root.pem \
+    --port 19990 --confirm-after 5
+```

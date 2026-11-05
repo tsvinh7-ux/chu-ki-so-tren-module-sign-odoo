@@ -3,6 +3,7 @@
     'summary': 'Mô phỏng tối thiểu Odoo Sign 17 (model, trang ký, hộp chọn chữ ký) để phát triển và test '
                'dmag_esign_cks_sign khi chưa có mã nguồn module Sign của Bizapps. KHÔNG cài lên hệ thống thật.',
     'version': '17.0.1.0.0',
+    'author': 'DMAG (bản giả lập để kiểm thử)',
     'license': 'LGPL-3',
     'depends': ['mail', 'portal'],
     'data': [

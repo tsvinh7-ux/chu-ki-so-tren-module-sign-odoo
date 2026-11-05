@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cks_sign_config_form" model="ir.ui.view">
+        <field name="name">dmag.cks.sign.config.form</field>
+        <field name="model">dmag.cks.sign.config</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_check" type="object" string="Kiểm tra" class="btn-secondary"/>
+                    <button name="action_activate" type="object" string="Bật" class="btn-primary" invisible="active"/>
+                    <button name="action_deactivate" type="object" string="Tắt" invisible="not active"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Đang bật" bg_color="text-bg-success" invisible="not active"/>
+                    <widget name="web_ribbon" title="Chưa bật" bg_color="text-bg-warning" invisible="active"/>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <p class="text-muted" style="max-width: 80%;">Thêm tab "USB token" và "App ký số" vào hộp chọn chữ ký
+                        của module Sign, không sửa mã nguồn của module Sign. Tên bên dưới điền sẵn theo Odoo Sign 17.
+                        Bấm <b>Kiểm tra</b> để xem chỗ nào khớp, sửa chỗ chưa khớp, rồi bấm <b>Bật</b>.</p>
+                    <group>
+                        <field name="required_roles" placeholder="Ví dụ: DMAG"/>
+                        <field name="active" invisible="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Kết quả kiểm tra" name="check">
+                            <field name="check_html" nolabel="1"/>
+                        </page>
+                        <page string="Tên model và trường" name="names">
+                            <group>
+                                <group string="Model">
+                                    <field name="request_model"/>
+                                    <field name="request_item_model"/>
+                                    <field name="item_model"/>
+                                </group>
+                                <group string="Hàm và trang ký">
+                                    <field name="m_item_sign"/>
+                                    <field name="m_request_complete"/>
+                                    <field name="page_url_regex"/>
+                                    <field name="submit_url_regex"/>
+                                    <field name="submit_param"/>
+                                </group>
+                                <group string="Yêu cầu ký">
+                                    <field name="f_req_template"/>
+                                    <field name="f_tpl_attachment"/>
+                                    <field name="f_req_reference"/>
+                                    <field name="f_req_state"/>
+                                    <field name="v_req_open"/>
+                                    <field name="f_req_completed"/>
+                                    <field name="f_req_items"/>
+                                </group>
+                                <group string="Người ký">
+                                    <field name="f_ri_partner"/>
+                                    <field name="f_ri_role"/>
+                                    <field name="f_ri_token"/>
+                                    <field name="f_ri_state"/>
+                                    <field name="v_ri_done"/>
+                                    <field name="f_ri_order"/>
+                                    <field name="f_ri_values"/>
+                                    <field name="f_val_item"/>
+                                    <field name="f_val_value"/>
+                                </group>
+                                <group string="Ô ký">
+                                    <field name="f_item_role"/>
+                                    <field name="f_item_type"/>
+                                    <field name="f_item_page"/>
+                                    <field name="f_item_x"/>
+                                    <field name="f_item_y"/>
+                                    <field name="f_item_w"/>
+                                    <field name="f_item_h"/>
+                                    <field name="f_item_required"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_cks_sign_config_tree" model="ir.ui.view">
+        <field name="name">dmag.cks.sign.config.tree</field>
+        <field name="model">dmag.cks.sign.config</field>
+        <field name="arch" type="xml">
+            <tree decoration-muted="not active">
+                <field name="name"/>
+                <field name="request_model"/>
+                <field name="required_roles"/>
+                <field name="active" widget="boolean_toggle" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+    <record id="action_cks_sign_config" model="ir.actions.act_window">
+        <field name="name">Ký số trong module Sign</field>
+        <field name="res_model">dmag.cks.sign.config</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+    <menuitem id="menu_cks_sign_config" name="Ký số trong module Sign" parent="dmag_esign_cks.menu_cks_config"
+              sequence="25" action="action_cks_sign_config"/>
+</odoo>

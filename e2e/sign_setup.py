@@ -16,6 +16,19 @@ for who, issued in tokens.items():
     open('/tmp/e2e/%s_cert.pem' % who, 'w').write(issued['cert_pem'])
     open('/tmp/e2e/%s_key.pem' % who, 'w').write(issued['key_pem'])
 
+# Root giả lập cho máy chủ MySign giả lập (e2e: chạy dmag_esign_cks/tests/fake_mysign.py)
+root = T.search([('is_demo', '=', True)], limit=1)
+open('/tmp/e2e/root.der', 'wb').write(base64.b64decode(root.cert_file))
+open('/tmp/e2e/root.pem', 'w').write(root.sudo().demo_key_pem)
+# DMAG ký bằng Viettel MySign (máy chủ giả lập ở cổng 19990), khách vẫn dùng USB token hoặc MySign
+mysign = env.ref('dmag_esign_cks.provider_viettel_mysign')
+mysign.write({'active': True, 'base_url': 'http://127.0.0.1:19990', 'client_id': 'dmag-client',
+              'client_secret': 'dmag-secret', 'profile_id': 'demo', 'use_for_company': True,
+              'use_for_customer': True, 'company_user_id': company.vat, 'request_ttl': 5,
+              'customer_label': 'Viettel MySign'})
+env['dmag.cks.provider'].search([('provider_type', '=', 'demo_cloud')]).write({'use_for_customer': False})
+env.ref('dmag_esign_cks_sign.sign_config_default').action_activate()
+
 Role, Type, Item = env['sign.item.role'], env['sign.item.type'], env['sign.item']
 role_c, role_d = Role.create({'name': 'Khách hàng'}), Role.create({'name': 'DMAG'})
 t_sig = Type.create({'name': 'Chữ ký', 'item_type': 'signature'})

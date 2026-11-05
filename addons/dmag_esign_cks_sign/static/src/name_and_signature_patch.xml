@@ -6,14 +6,18 @@
         </xpath>
         <xpath expr="//div[hasclass('o_web_sign_name_and_signature')]/*[1]" position="before">
             <div t-if="cksEnabled" class="alert alert-warning o_dmag_cks_notice small mb-2" role="note">
-                <t t-if="cksRequired">Vai trò của bạn phải ký bằng chữ ký số (USB token).</t>
-                <t t-else="">Nên ký bằng USB token (chữ ký số) để hợp đồng có giá trị như chữ ký tay và được công nhận khi làm thủ tục hành chính.</t>
+                <t t-if="cksRequired">Vai trò của bạn phải ký bằng chữ ký số (USB token hoặc ứng dụng ký số).</t>
+                <t t-else="">Nên ký bằng chữ ký số (USB token hoặc ứng dụng ký số) để hợp đồng có giá trị như chữ ký tay và được công nhận khi làm thủ tục hành chính.</t>
             </div>
         </xpath>
         <xpath expr="//div[hasclass('card-header')]//div[hasclass('row')]/*[1]" position="before">
             <div t-if="cksEnabled" class="col-auto">
                 <a role="button" href="#" t-on-click.prevent="onClickCksUsb"
                    t-attf-class="o_dmag_cks_usb_button me-2 btn btn-light {{ state.signMode === 'dmag_usb' ? 'active' : '' }}">USB token</a>
+            </div>
+            <div t-if="cksHasCloud" class="col-auto">
+                <a role="button" href="#" t-on-click.prevent="onClickCksCloud"
+                   t-attf-class="o_dmag_cks_cloud_button me-2 btn btn-light {{ state.signMode === 'dmag_cloud' ? 'active' : '' }}">App ký số</a>
             </div>
         </xpath>
         <xpath expr="//div[hasclass('o_web_sign_signature_container')]" position="before">
@@ -23,7 +27,8 @@
                 </t>
                 <t t-elif="cks.agent === 'missing'">
                     <div class="small mb-2">Máy tính cần phần mềm <strong>DMAG Ký số</strong> để ký bằng USB token (cài 1 lần):
-                        cắm USB token, <a t-att-href="cks.config.agentDownload" class="fw-bold">tải DMAG Ký số</a>, mở file vừa tải, rồi bấm nút dưới.</div>
+                        cắm USB token, <a t-att-href="cks.config.agentDownload" class="fw-bold">tải DMAG Ký số</a>, mở file vừa tải, rồi bấm nút dưới.
+                        <t t-if="cksHasCloud"> Nếu dùng chữ ký số trên điện thoại, chọn tab "App ký số".</t></div>
                     <button type="button" class="btn btn-sm btn-primary o_dmag_cks_retry" t-on-click="onClickCksRetry">Tôi đã cài xong, tìm chữ ký số</button>
                 </t>
                 <t t-elif="cks.agent === 'not_allowed'">
@@ -45,6 +50,30 @@
                         </label>
                     </t>
                 </t>
+            </div>
+            <div t-if="cksHasCloud and state.signMode === 'dmag_cloud'" class="o_dmag_cks_panel border-bottom p-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-5">
+                        <label class="small text-muted" for="dmag_cks_provider">Nhà cung cấp</label>
+                        <select id="dmag_cks_provider" class="form-select form-select-sm o_dmag_cks_provider" t-on-change="onChangeCksProvider">
+                            <t t-foreach="cks.config.cloudProviders" t-as="provider" t-key="provider.id">
+                                <option t-att-value="provider.id" t-att-selected="provider.id === cks.cloud.providerId" t-esc="provider.label"/>
+                            </t>
+                        </select>
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="small text-muted" for="dmag_cks_account">Tài khoản ký số</label>
+                        <input id="dmag_cks_account" type="text" class="form-control form-control-sm o_dmag_cks_account"
+                               t-att-value="cks.cloud.remoteUserId" t-on-input="onInputCksAccount"/>
+                    </div>
+                    <div class="col-sm-3">
+                        <button type="button" class="btn btn-sm btn-primary w-100 o_dmag_cks_check" t-on-click="onClickCksCheckAccount">Kiểm tra</button>
+                    </div>
+                </div>
+                <div class="small text-muted mt-1" t-esc="cksProviderHint"/>
+                <div t-if="cks.cloud.error" class="small text-danger mt-1" t-esc="cks.cloud.error"/>
+                <div t-if="cks.cloud.checked" class="small text-success mt-1">Chứng thư: <t t-esc="cks.cloud.checked.display"/>.
+                    Khi bấm hoàn tất, mở ứng dụng trên điện thoại để xác nhận.</div>
             </div>
         </xpath>
     </t>

@@ -53,6 +53,7 @@
                                     <field name="client_id" invisible="provider_type == 'demo_cloud'"/>
                                     <field name="client_secret" password="True" invisible="provider_type == 'demo_cloud'"/>
                                     <field name="profile_id" invisible="provider_type != 'viettel_mysign'"/>
+                                    <field name="async_code" invisible="provider_type != 'viettel_mysign'"/>
                                     <field name="timeout"/>
                                     <field name="request_ttl"/>
                                 </group>

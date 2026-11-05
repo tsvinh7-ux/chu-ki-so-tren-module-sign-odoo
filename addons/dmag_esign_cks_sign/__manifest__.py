@@ -1,35 +1,38 @@
 {
-    'name': 'DMAG – Ký số USB token ngay trong Odoo Sign',
-    'summary': 'Thêm tab "USB token" vào hộp chọn chữ ký của Odoo Sign: người ký chọn chứng thư, nhập PIN, '
-               'chữ ký số PAdES được ghi vào hợp đồng ngay lúc ký. Ai ký trước cũng được.',
+    'name': 'DMAG – Ký số USB token / MySign ngay trong module Sign',
+    'summary': 'Thêm tab "USB token" và "App ký số" (Viettel MySign…) vào hộp chọn chữ ký của module Sign '
+               'kiểu Odoo Sign, không cần mã nguồn của module Sign',
     'description': """
-Cầu nối giữa dmag_esign_cks và module Sign (Odoo Sign 17 hoặc bản Bizapps làm giống Odoo Sign).
+Cầu nối giữa dmag_esign_cks và module Sign có cấu trúc như Odoo Sign 17 (ví dụ bản của Bizapps).
 
-* Hộp chọn chữ ký có thêm lời nhắc và tab "USB token". Các cách ký vẽ / gõ / tải ảnh vẫn giữ.
-* Người ký chọn USB token: Odoo ghi các ô người đó điền và chữ ký số vào bản PDF hiện tại, rồi chốt lại.
-* Người ký sau (ký số hay ký thường) được ghi thêm thành lớp mới, không làm hỏng chữ ký số trước.
-* Khi mọi bên ký xong, file hoàn tất là bản đã chốt (không vẽ lại), Odoo tự kiểm tra chữ ký.
-* Vai trò có thể đặt "Bắt buộc ký số".
+Addon không phụ thuộc tên kỹ thuật của module Sign và không sửa mã nguồn của nó:
 
-Phụ thuộc module có tên kỹ thuật ``sign``. Nếu module của Bizapps tên khác, sửa ``depends`` cho khớp.
+* Tên model, trường, hàm, đường dẫn trang ký nằm trong cấu hình (mặc định theo Odoo Sign 17),
+  bấm "Kiểm tra" để thấy chỗ nào khớp.
+* Khi bật, addon gắn thêm bước ký số vào hàm "ký" và hàm "tạo file hoàn tất" của module Sign
+  lúc Odoo khởi động (cùng cách module Tự động hóa của Odoo dùng).
+* Trên trang ký, hộp chọn chữ ký có thêm lời nhắc, tab "USB token" và "App ký số". Khi người ký
+  bấm hoàn tất, addon ký số trước rồi mới cho dữ liệu đi tiếp tới module Sign.
+* Không khớp (trang khác, hộp ký khác): các tab tự ẩn, module Sign chạy như cũ.
 """,
-    'version': '17.0.1.0.0',
+    'version': '17.0.2.0.0',
     'category': 'Productivity/Documents',
     'author': 'DMAG – Dental Management & Analytics Group',
     'website': 'https://dmagroup.vn',
     'license': 'LGPL-3',
-    'depends': ['dmag_esign_cks', 'sign'],
+    'depends': ['dmag_esign_cks'],
     'data': [
         'security/ir.model.access.csv',
-        'views/sign_views.xml',
-        'views/sign_templates.xml',
+        'data/sign_config_data.xml',
+        'views/sign_config_views.xml',
+        'views/sign_doc_views.xml',
     ],
     'assets': {
         'web.assets_frontend': [
             'dmag_esign_cks_sign/static/src/cks_store.js',
             'dmag_esign_cks_sign/static/src/name_and_signature_patch.js',
             'dmag_esign_cks_sign/static/src/name_and_signature_patch.xml',
-            'dmag_esign_cks_sign/static/src/sign_page_patch.js',
+            'dmag_esign_cks_sign/static/src/submit_interceptor.js',
             'dmag_esign_cks_sign/static/src/cks_sign.scss',
         ],
     },

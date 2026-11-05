@@ -1,4 +1,5 @@
-// Ký số USB token NGAY TRONG trang ký của module Sign (bản giả lập theo Odoo 17):
+// Ký số NGAY TRONG trang ký của module Sign (bản giả lập theo Odoo 17), qua module dmag_esign_cks_sign:
+//   khách: tab "USB token" (phần mềm DMAG Ký số, chế độ PEM) · DMAG: tab "App ký số" (Viettel MySign giả lập)
 //   node e2e/sign_flow.js <sign_urls.json> <thư mục PEM> <agent linux> <thư mục ảnh> [base_url]
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
@@ -24,41 +25,57 @@ async function startAgent(who) {
   await sleep(800);
 }
 
-async function signWithUsb(page, url, name, prefix) {
+async function openAndAdopt(page, url, prefix) {
   await page.goto(BASE + url);
   await page.waitForSelector('.o_sign_mock_page img', { timeout: 30000 });
   await shot(page, prefix + '-1-trang-ky', true);
   await page.click('.o_sign_mock_item.o_mine.o_sign_mock_item_signature');
   await page.waitForSelector('.o_dmag_cks_notice', { timeout: 15000 });
-  await page.waitForSelector('.o_dmag_cks_cert', { timeout: 15000 });
-  await page.click('.o_dmag_cks_cert input');
-  await page.waitForSelector('.o_sign_mock_adopt:not([disabled])', { timeout: 15000 });
-  await sleep(400);
-  await shot(page, prefix + '-2-hop-ky-usb-token');
-  await page.click('.o_sign_mock_adopt');
-  await page.fill('.o_sign_mock_item.o_mine input.o_sign_mock_text', name);
-  await shot(page, prefix + '-3-da-chon-chu-ky', true);
-  await page.click('.o_sign_mock_submit');
-  await page.waitForSelector('text=/Bạn đã ký xong|Mọi bên đã ký/', { timeout: 30000 });
-  await shot(page, prefix + '-4-ky-xong');
 }
 
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'vi-VN' });
   const page = await ctx.newPage();
-  page.on('console', m => { if (m.type() === 'error') console.log('console error:', m.text()); });
   page.on('pageerror', e => console.log('page error:', e.message));
 
+  // 1. Khách: USB token
   await startAgent('customer');
-  await signWithUsb(page, urls.customer, 'Nguyễn Văn A', '21-khach');
-  await startAgent('dmag');
-  await signWithUsb(page, urls.dmag, 'Mitchell Admin', '22-dmag');
-  // Mở lại: trang hiện bản hoàn tất có 2 chữ ký số
+  await openAndAdopt(page, urls.customer, '31-khach');
+  await page.waitForSelector('.o_dmag_cks_cert', { timeout: 15000 });
+  await page.click('.o_dmag_cks_cert input');
+  await page.waitForSelector('.o_sign_mock_adopt:not([disabled])', { timeout: 15000 });
+  await sleep(300);
+  await shot(page, '31-khach-2-hop-ky-usb-token');
+  await page.click('.o_sign_mock_adopt');
+  await page.fill('.o_sign_mock_item.o_mine input.o_sign_mock_text', 'Nguyễn Văn A');
+  await page.click('.o_sign_mock_submit');
+  await page.waitForSelector('#dmag_cks_overlay', { timeout: 15000 });
+  await shot(page, '31-khach-3-dang-ky-so');
+  await page.waitForSelector('text=Bạn đã ký xong', { timeout: 30000 });
+  await shot(page, '31-khach-4-ky-xong');
+
+  // 2. DMAG: App ký số (Viettel MySign)
+  await openAndAdopt(page, urls.dmag, '32-dmag');
+  await page.click('.o_dmag_cks_cloud_button');
+  await page.waitForSelector('.o_dmag_cks_account', { timeout: 15000 });
+  await page.click('.o_dmag_cks_check');
+  await page.waitForSelector('text=Chứng thư:', { timeout: 20000 });
+  await page.waitForSelector('.o_sign_mock_adopt:not([disabled])', { timeout: 15000 });
+  await sleep(300);
+  await shot(page, '32-dmag-2-hop-ky-mysign');
+  await page.click('.o_sign_mock_adopt');
+  await page.fill('.o_sign_mock_item.o_mine input.o_sign_mock_text', 'Giám đốc DMAG');
+  await page.click('.o_sign_mock_submit');
+  await page.waitForSelector('text=/Mời mở ứng dụng/', { timeout: 20000 });
+  await shot(page, '32-dmag-3-cho-xac-nhan-app');
+  await page.waitForSelector('text=Mọi bên đã ký', { timeout: 60000 });
+  await shot(page, '32-dmag-4-hoan-tat');
+
   await page.goto(BASE + urls.customer);
   await page.waitForSelector('.o_sign_mock_page img', { timeout: 30000 });
   await sleep(500);
-  await shot(page, '23-ban-hoan-tat', true);
+  await shot(page, '33-ban-hoan-tat', true);
   await browser.close();
   agent.kill();
   console.log('SIGN FLOW OK');

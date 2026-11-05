@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Mặc định theo Odoo Sign 17. Bấm "Kiểm tra" rồi "Bật" trong Ký số › Cấu hình › Ký số trong module Sign. -->
+    <record id="sign_config_default" model="dmag.cks.sign.config">
+        <field name="name">Module Sign (cấu trúc Odoo Sign 17)</field>
+        <field name="active" eval="False"/>
+    </record>
+</odoo>

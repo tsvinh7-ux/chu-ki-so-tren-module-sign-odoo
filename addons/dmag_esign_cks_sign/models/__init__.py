@@ -1,2 +1,2 @@
+from . import sign_config
 from . import sign_doc
-from . import sign_inherit
